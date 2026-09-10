@@ -33,3 +33,6 @@ android/local.properties
 # --- Systeme ---
 .DS_Store
 Thumbs.db
+
+# Espace de travail SDD (jetable)
+.superpowers/

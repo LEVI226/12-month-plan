@@ -1,0 +1,35 @@
+# --- Données personnelles : NE JAMAIS COMMITER ---
+# Ces fichiers contiennent des reponses de bilan intimes et des donnees
+# nominatives. Le depot est public.
+FICHE BILANYannick.odt
+12 Months ProgramYanick.ODT
+*Yannick*
+*Yanick*
+bilans-remplis/
+*.local.json
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+
+# --- Node / Capacitor / Android ---
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab
+
+# --- Systeme ---
+.DS_Store
+Thumbs.db

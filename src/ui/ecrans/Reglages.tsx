@@ -23,20 +23,28 @@ export function EcranReglages({ pilote }: { pilote: PiloteSql }) {
   async function exporter() {
     const contenu = await exporterTout(pilote);
     const nomFichier = `childeric-export-${dateDuJourLocale()}.json`;
+    const { Capacitor } = await import('@capacitor/core');
 
-    try {
-      const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
-      const resultat = await Filesystem.writeFile({
-        path: nomFichier,
-        data: contenu,
-        directory: Directory.Documents,
-        encoding: Encoding.UTF8,
-      });
-      setMessage(`Export enregistré dans vos documents : ${resultat.uri}`);
-    } catch {
-      telechargerDansLeNavigateur(nomFichier, contenu);
-      setMessage('Export téléchargé.');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
+        const resultat = await Filesystem.writeFile({
+          path: nomFichier,
+          data: contenu,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8,
+        });
+        setMessage(`Export écrit dans ${resultat.uri}`);
+      } catch (erreur) {
+        setMessage(
+          `Échec de l'export : ${String(erreur)}. Vos données n'ont PAS été sauvegardées, ne supprimez rien.`,
+        );
+      }
+      return;
     }
+
+    telechargerDansLeNavigateur(nomFichier, contenu);
+    setMessage('Export téléchargé.');
   }
 
   async function supprimer() {

@@ -43,7 +43,7 @@ export function App() {
   if (etape === 'chargement' || !pilote) return <p>Chargement…</p>;
   if (etape === 'demarrage') return <Demarrage onValider={demarrer} />;
   if (etape === 'bilan' && bilan) return <EcranBilan depot={new DepotBilanSql(pilote)} bilan={bilan} onTermine={terminerBilan} />;
-  if (etape === 'reglages') return <EcranReglages pilote={pilote} />;
+  if (etape === 'reglages') return <EcranReglages pilote={pilote} onRetour={() => setEtape('termine')} />;
 
   return (
     <main>

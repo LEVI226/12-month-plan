@@ -16,7 +16,7 @@ function telechargerDansLeNavigateur(nomFichier: string, contenu: string): void 
   lien.click();
 }
 
-export function EcranReglages({ pilote }: { pilote: PiloteSql }) {
+export function EcranReglages({ pilote, onRetour }: { pilote: PiloteSql; onRetour(): void }) {
   const [message, setMessage] = useState('');
   const [confirmation, setConfirmation] = useState(false);
 
@@ -71,6 +71,8 @@ export function EcranReglages({ pilote }: { pilote: PiloteSql }) {
       )}
 
       {message && <p role="status">{message}</p>}
+
+      <button type="button" onClick={onRetour}>Retour</button>
     </main>
   );
 }

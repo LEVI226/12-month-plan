@@ -4,7 +4,7 @@ Cette version vous permet de remplir votre bilan personnel et professionnel de b
 
 ## Installer l'APK
 
-Avec un câble et le téléphone en mode débogage USB :
+Avec un câble et le téléphone en mode débogage USB, depuis Git Bash à la racine du projet (cette commande utilise une syntaxe bash et ne fonctionnera pas telle quelle dans PowerShell ou l'invite de commandes Windows) :
 
 ```
 "$LOCALAPPDATA/Android/Sdk/platform-tools/adb" install -r android/app/build/outputs/apk/debug/app-debug.apk
@@ -20,8 +20,8 @@ Sans câble : copiez le fichier `android/app/build/outputs/apk/debug/app-debug.a
 4. Revenez en arrière d'une question : la réponse que vous aviez donnée s'affiche bien.
 5. Continuez jusqu'à la dernière question et appuyez sur « Terminer » : l'écran « Bilan terminé » s'affiche.
 6. Rouvrez l'application : elle doit afficher directement « Bilan terminé » (votre bilan est désormais figé et ne peut plus être modifié).
-7. Dans Réglages, appuyez sur « Exporter mes données » : un fichier JSON est produit et contient bien vos réponses.
-8. Toujours dans Réglages, demandez la suppression et confirmez : vos données disparaissent.
+7. Dans Réglages, appuyez sur « Exporter mes données » : un fichier JSON est produit et contient bien vos réponses. Le bouton « Retour » en bas de l'écran vous ramène à l'écran « Bilan terminé ».
+8. Toujours dans Réglages, demandez la suppression et confirmez : vos données disparaissent. Le bouton « Retour » en bas de l'écran vous ramène à l'écran « Bilan terminé ».
 
 ## Ce que cette version ne fait pas encore
 

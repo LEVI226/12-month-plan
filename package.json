@@ -10,6 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "8.1.1",
     "@capacitor/android": "8.5.1",
     "@capacitor/core": "8.5.1",
     "react": "19.3.0",

@@ -11,7 +11,7 @@ export class PiloteCapacitor implements PiloteSql {
     const sqlite = new SQLiteConnection(CapacitorSQLite);
     const connexion = await sqlite.createConnection(NOM_BASE, false, 'no-encryption', 1, false);
     await connexion.open();
-    await connexion.execute('PRAGMA foreign_keys = ON');
+    await connexion.execute('PRAGMA foreign_keys = ON', false);
     return new PiloteCapacitor(connexion);
   }
 

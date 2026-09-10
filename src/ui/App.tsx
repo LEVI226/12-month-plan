@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { obtenirBase } from '../donnees/base';
 import type { PiloteSql } from '../donnees/pilote';
 import { DepotBilanSql } from '../donnees/depot-bilan';
@@ -14,6 +14,9 @@ export function App() {
   const [pilote, setPilote] = useState<PiloteSql | null>(null);
   const [etape, setEtape] = useState<Etape>('chargement');
   const [bilan, setBilan] = useState<Bilan | null>(null);
+  const [erreur, setErreur] = useState('');
+
+  const depotBilan = useMemo(() => (pilote ? new DepotBilanSql(pilote) : null), [pilote]);
 
   useEffect(() => {
     (async () => {
@@ -29,20 +32,40 @@ export function App() {
   }, []);
 
   async function demarrer(reglages: Reglages) {
-    await new DepotParametresSql(pilote!).enregistrer(reglages);
-    const depot = new DepotBilanSql(pilote!);
-    setBilan(await depot.creerBrouillon());
-    setEtape('bilan');
+    try {
+      await new DepotParametresSql(pilote!).enregistrer(reglages);
+      const depot = new DepotBilanSql(pilote!);
+      setBilan(await depot.creerBrouillon());
+      setEtape('bilan');
+      setErreur('');
+    } catch (e) {
+      setErreur(`Le démarrage a échoué : ${String(e)}. Réessayez.`);
+    }
   }
 
   async function terminerBilan() {
-    await new DepotBilanSql(pilote!).geler(bilan!.id);
-    setEtape('termine');
+    try {
+      await new DepotBilanSql(pilote!).geler(bilan!.id);
+      setEtape('termine');
+      setErreur('');
+    } catch (e) {
+      setErreur(`La clôture du bilan a échoué : ${String(e)}. Vos réponses restent enregistrées, réessayez.`);
+    }
   }
 
   if (etape === 'chargement' || !pilote) return <p>Chargement…</p>;
-  if (etape === 'demarrage') return <Demarrage onValider={demarrer} />;
-  if (etape === 'bilan' && bilan) return <EcranBilan depot={new DepotBilanSql(pilote)} bilan={bilan} onTermine={terminerBilan} />;
+  if (etape === 'demarrage') return (
+    <>
+      {erreur && <p role="alert">{erreur}</p>}
+      <Demarrage onValider={demarrer} />
+    </>
+  );
+  if (etape === 'bilan' && bilan && depotBilan) return (
+    <>
+      {erreur && <p role="alert">{erreur}</p>}
+      <EcranBilan depot={depotBilan} bilan={bilan} onTermine={terminerBilan} />
+    </>
+  );
   if (etape === 'reglages') return <EcranReglages pilote={pilote} onRetour={() => setEtape('termine')} />;
 
   return (

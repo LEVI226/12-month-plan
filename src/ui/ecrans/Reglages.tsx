@@ -21,36 +21,46 @@ export function EcranReglages({ pilote, onRetour }: { pilote: PiloteSql; onRetou
   const [confirmation, setConfirmation] = useState(false);
 
   async function exporter() {
-    const contenu = await exporterTout(pilote);
-    const nomFichier = `childeric-export-${dateDuJourLocale()}.json`;
-    const { Capacitor } = await import('@capacitor/core');
+    try {
+      const contenu = await exporterTout(pilote);
+      const nomFichier = `childeric-export-${dateDuJourLocale()}.json`;
+      const { Capacitor } = await import('@capacitor/core');
 
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
-        const resultat = await Filesystem.writeFile({
-          path: nomFichier,
-          data: contenu,
-          directory: Directory.Documents,
-          encoding: Encoding.UTF8,
-        });
-        setMessage(`Export écrit dans ${resultat.uri}`);
-      } catch (erreur) {
-        setMessage(
-          `Échec de l'export : ${String(erreur)}. Vos données n'ont PAS été sauvegardées, ne supprimez rien.`,
-        );
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
+          const resultat = await Filesystem.writeFile({
+            path: nomFichier,
+            data: contenu,
+            directory: Directory.Documents,
+            encoding: Encoding.UTF8,
+          });
+          setMessage(`Export écrit dans ${resultat.uri}`);
+        } catch (erreur) {
+          setMessage(
+            `Échec de l'export : ${String(erreur)}. Vos données n'ont PAS été sauvegardées, ne supprimez rien.`,
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    telechargerDansLeNavigateur(nomFichier, contenu);
-    setMessage('Export téléchargé.');
+      telechargerDansLeNavigateur(nomFichier, contenu);
+      setMessage('Export téléchargé.');
+    } catch (erreur) {
+      setMessage(
+        `Échec de l'export : ${String(erreur)}. Vos données n'ont PAS été sauvegardées, ne supprimez rien.`,
+      );
+    }
   }
 
   async function supprimer() {
-    await supprimerTout(pilote);
-    setConfirmation(false);
-    setMessage('Toutes vos données ont été supprimées.');
+    try {
+      await supprimerTout(pilote);
+      setConfirmation(false);
+      setMessage('Toutes vos données ont été supprimées.');
+    } catch (erreur) {
+      setMessage(`Échec de la suppression : ${String(erreur)}. Vos données sont toujours présentes.`);
+    }
   }
 
   return (

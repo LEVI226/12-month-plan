@@ -6,7 +6,9 @@ Le problème que ce projet attaque n'est pas l'introspection — c'est la **cons
 
 ## État du projet
 
-Phase de conception. Aucun code pour l'instant.
+La v1 est implémentée : bilan de bout en bout (53 questions), gel du bilan, export et suppression des données, APK Android compilable. Le détail de ce qui a été vérifié est ici : [`VERIFICATION-v0.1.md`](VERIFICATION-v0.1.md).
+
+Le suivi quotidien et la génération automatique du plan sur 12 mois arrivent dans une prochaine version.
 
 La spécification de la v1 est ici : [`docs/superpowers/specs/2026-09-10-childeric-design.md`](docs/superpowers/specs/2026-09-10-childeric-design.md)
 
@@ -37,3 +39,7 @@ La fiche bilan récolte des réponses intimes. Deux règles :
 |---|---|
 | `FICHE BILAN.docx` | Le gabarit vierge : 11 questions personnelles, 20 professionnelles |
 | `docs/superpowers/specs/` | Les spécifications de conception |
+| `src/` | Le code source de l'application (domaine, données, interface) |
+| `tests/` | La suite de tests automatisés |
+| `android/` | Le projet Android natif (Capacitor) qui produit l'APK |
+| `VERIFICATION-v0.1.md` | La procédure de vérification manuelle de la v0.1 et ses limites connues |

@@ -29,3 +29,8 @@ Sans câble : copiez le fichier `android/app/build/outputs/apk/debug/app-debug.a
 - Le suivi quotidien et les rappels associés.
 
 Ces fonctions arrivent dans les versions suivantes.
+
+## Limites connues de cette version
+
+- L'export écrit le fichier dans le dossier Documents de votre téléphone. Sur Android 7 à 10, cette écriture peut échouer faute des autorisations de stockage que ces versions exigent. Si l'export échoue, l'application vous le dit explicitement : dans ce cas, ne supprimez rien tant que l'export n'a pas réussi.
+- Le fichier exporté n'est pas chiffré : il contient vos réponses en clair et reste lisible par les autres applications de votre téléphone. Il est donc recommandé de le déplacer vers un endroit sûr (ou de le supprimer) une fois que vous l'avez mis en sécurité.

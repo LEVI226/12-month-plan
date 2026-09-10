@@ -12,6 +12,7 @@ interface Props {
 export function EcranBilan({ depot, bilan, onTermine }: Props) {
   const [index, setIndex] = useState<number | null>(null);
   const [valeur, setValeur] = useState('');
+  const [erreur, setErreur] = useState('');
 
   useEffect(() => {
     depot.reponses(bilan.id).then((reponses) => {
@@ -28,23 +29,33 @@ export function EcranBilan({ depot, bilan, onTermine }: Props) {
   const derniere = index === QUESTIONS.length - 1;
 
   async function avancer() {
-    await depot.repondre(bilan.id, question.code, valeur);
-    if (derniere) {
-      onTermine();
-      return;
+    try {
+      await depot.repondre(bilan.id, question.code, valeur);
+      if (derniere) {
+        onTermine();
+        return;
+      }
+      const suivant = index! + 1;
+      const reponses = await depot.reponses(bilan.id);
+      setIndex(suivant);
+      setValeur(reponses[QUESTIONS[suivant].code] ?? '');
+      setErreur('');
+    } catch {
+      setErreur('Votre réponse n\'a pas pu être enregistrée. Réessayez.');
     }
-    const suivant = index! + 1;
-    const reponses = await depot.reponses(bilan.id);
-    setIndex(suivant);
-    setValeur(reponses[QUESTIONS[suivant].code] ?? '');
   }
 
   async function reculer() {
-    await depot.repondre(bilan.id, question.code, valeur);
-    const precedent = Math.max(0, index! - 1);
-    const reponses = await depot.reponses(bilan.id);
-    setIndex(precedent);
-    setValeur(reponses[QUESTIONS[precedent].code] ?? '');
+    try {
+      await depot.repondre(bilan.id, question.code, valeur);
+      const precedent = Math.max(0, index! - 1);
+      const reponses = await depot.reponses(bilan.id);
+      setIndex(precedent);
+      setValeur(reponses[QUESTIONS[precedent].code] ?? '');
+      setErreur('');
+    } catch {
+      setErreur('Votre réponse n\'a pas pu être enregistrée. Réessayez.');
+    }
   }
 
   return (
@@ -59,6 +70,8 @@ export function EcranBilan({ depot, bilan, onTermine }: Props) {
       ) : (
         <textarea id="reponse" rows={6} value={valeur} onChange={(e) => setValeur(e.target.value)} />
       )}
+
+      {erreur && <p role="alert">{erreur}</p>}
 
       <div>
         {index > 0 && <button type="button" onClick={reculer}>Précédent</button>}

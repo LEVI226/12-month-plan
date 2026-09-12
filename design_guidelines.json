@@ -1,0 +1,175 @@
+{
+  "app_name": "Childeric",
+  "personality": "8 Hand-Drawn / Journal",
+  "personality_one_liner": "A calm, intimate, and non-judgmental companion providing clarity and a gentle rhythm for personal and professional development.",
+  "color": {
+    "surface": "#FAF8F5",
+    "onSurface": "#2C302B",
+    "surfaceSecondary": "#F2EFE9",
+    "onSurfaceSecondary": "#3A3F38",
+    "surfaceTertiary": "#EBE6DF",
+    "onSurfaceTertiary": "#4A5048",
+    "surfaceInverse": "#3A3F38",
+    "onSurfaceInverse": "#FAF8F5",
+    "brand": "#6A816C",
+    "onBrand": "#FFFFFF",
+    "brandPrimary": "#6A816C",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#B88B7D",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#E1E5E0",
+    "onBrandTertiary": "#3A3F38",
+    "success": "#759078",
+    "onSuccess": "#FFFFFF",
+    "warning": "#D8A05C",
+    "onWarning": "#FFFFFF",
+    "error": "#B88B7D",
+    "onError": "#FFFFFF",
+    "info": "#8FA391",
+    "onInfo": "#FFFFFF",
+    "border": "#E1DFDA",
+    "borderStrong": "#C2C0BB",
+    "divider": "#E1DFDA",
+    "muted": "#7E857B"
+  },
+  "typography": {
+    "displayFontFamily": "Fraunces",
+    "textFontFamily": "Nunito",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous, breathable margins (xl/2xl) reflecting a calm journal page. Avoid cramped lists. Group related items with ample white space.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 0,
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": [
+      "Use flat, paper-like surface layering instead of glass to maintain the tactile, human-made feel."
+    ],
+    "dont's": [
+      "Do not use blur or glassmorphism on elevated surfaces."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Onboarding",
+      "purpose": "Reassure about privacy (local data only) and capture name/timezone/reminder time gently.",
+      "states": {
+        "loading": "Centered soft spinner.",
+        "empty": "N/A",
+        "error": "Soft inline message with 'Réessayer'."
+      },
+      "layout": "Use the 'welcome_bg' soft texture at the top. Large display typography for 'Bienvenue'. Inputs should have no borders, just surfaceTertiary backgrounds. A prominent sticky 'Commencer' button at the bottom."
+    },
+    {
+      "name": "Bilan personnel (Questionnaire)",
+      "purpose": "A guided, non-judgmental self-assessment feeling like an interview.",
+      "states": {
+        "loading": "Skeleton of a single question block.",
+        "empty": "N/A",
+        "error": "Snackbar 'Une erreur est survenue' with retry."
+      },
+      "layout": "Paginated format (1 question per screen) to reduce cognitive load. Progress bar at top. Short, concise titles. Large, soft pill buttons for options. Next/Back navigation ('Continuer') anchored securely at the bottom."
+    },
+    {
+      "name": "Création du plan",
+      "purpose": "Transform the assessment into 1-3 objectives with concrete daily/weekly actions.",
+      "states": {
+        "loading": "Spinner.",
+        "empty": "Illustration indicating 'Aucun plan actif' with CTA 'Créer mon plan'.",
+        "error": "Retry state."
+      },
+      "layout": "Hero image ('plan_hero') at top. Main ambition as a large header. Objective cards (surfaceSecondary) holding nested actions. Day-of-week selectors should be rounded chips. Floating/sticky CTA to finalize the plan."
+    },
+    {
+      "name": "Aujourd'hui",
+      "purpose": "The main daily view for tracking planned actions, logging mood, and closing the day.",
+      "states": {
+        "loading": "Skeleton lists.",
+        "empty": "Abstract nature texture or soft illustration with text 'Aucune action prévue aujourd\\'hui. Profitez de votre journée.'",
+        "error": "Centered retry button."
+      },
+      "layout": "'Aujourd\\'hui' and date in Fraunces. Stack of large action cards (md or lg radius) with oversized, easy-to-tap checkboxes. Micro-feedback on check. Bottom section includes a 1-5 mood selector using soft Phosphor emojis, and a sticky 'Clôturer ma journée' button."
+    },
+    {
+      "name": "Suivi (Tracking)",
+      "purpose": "Temporal visualization of consistency without aggressive gamification or guilt.",
+      "states": {
+        "loading": "Skeleton grids.",
+        "empty": "Text 'Commencez à clôturer vos journées pour voir votre suivi.'",
+        "error": "Retry state."
+      },
+      "layout": "Grid-based week and 8-week views using small colored squares/circles (Sage for done, Faded Clay for missed). Missed days should feel like a 'pause', not a failure. Include a gentle mood reading chart and 'reprendre' messaging."
+    },
+    {
+      "name": "Réglages",
+      "purpose": "Manage app settings, export local data, and safely delete data.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "Standard alert."
+      },
+      "layout": "Plain, simple list format grouped by sections. Emphasize data privacy. Destructive actions (delete data) must have clear, prudent confirmation sheets."
+    }
+  ],
+  "images": {
+    "plan_hero": {
+      "url": "https://images.unsplash.com/photo-1637689113621-73951984fcc1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbW9ybmluZyUyMGNvZmZlZSUyMHN1bmxpZ2h0JTIwam91cm5hbHxlbnwwfHx8fDE3ODkyNDc1NjZ8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "A cup of coffee and a notebook on a table, representing calm planning."
+    },
+    "welcome_bg": {
+      "url": "https://images.unsplash.com/photo-1714636608872-048fc9231892?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxzb2Z0JTIwYmVpZ2UlMjB3YXRlcmNvbG9yJTIwYWJzdHJhY3QlMjB0ZXh0dXJlfGVufDB8fHx8MTc4OTI0NzU2Nnww&ixlib=rb-4.1.0&q=85",
+      "alt": "Soft beige watercolor abstract texture for a soothing onboarding experience."
+    }
+  },
+  "haptics": {
+    "action_check": "light",
+    "day_close": "success",
+    "mood_select": "selection",
+    "navigation_tab": "selection",
+    "plan_create": "medium"
+  },
+  "instructions_to_main_agent": [
+    "Follow the '8 Hand-Drawn / Journal' personality. The UI must feel like paper, using flat tones, generous padding, and avoiding all harsh shadows, blurs, or gradients.",
+    "Typography: Use Fraunces (up to weight 500) for all display/headings to give an editorial, grounded feel, and Nunito for all body text to inject warmth and 'douceur'.",
+    "Strict Color Compliance: BANNED are all blues, purples, and indigos. Use the defined Sage (brandPrimary #6A816C) and Faded Clay (brandSecondary #B88B7D). Note that Faded Clay replaces standard 'Red' for missed actions to remove any feeling of culpability.",
+    "Layout Rules: The Bilan questionnaire must be strictly paginated (one question per screen) to reduce cognitive load. Use sticky CTA buttons at the bottom for main actions like 'Commencer', 'Continuer', and 'Clôturer ma journée'.",
+    "Images MUST use the provided gradient-to-dark scrim pattern if text is overlaid on them (e.g. over the plan_hero image).",
+    "Language: Ensure all microcopy respects the non-judgmental tone defined in the prompt. Use 'Reprendre' instead of 'Échec', and keep strings in French.",
+    "Wire haptics defined in the 'haptics' block to corresponding touchable components.",
+    "Every icon must be from the Phosphor set, utilizing soft rounded shapes."
+  ]
+}

@@ -36,3 +36,4 @@ Thumbs.db
 
 # Espace de travail SDD (jetable)
 .superpowers/
+.worktrees/

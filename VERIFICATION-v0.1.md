@@ -26,9 +26,19 @@ Sans câble : copiez le fichier `android/app/build/outputs/apk/debug/app-debug.a
 ## Ce que cette version ne fait pas encore
 
 - La construction automatique de votre plan sur 12 mois à partir de vos réponses.
-- Le suivi quotidien et les rappels associés.
+- Les rappels associés.
 
 Ces fonctions arrivent dans les versions suivantes.
+
+## Vérification routine offline
+
+1. Terminer ou conserver un bilan gelé.
+2. Depuis l'écran de plan, saisir une ambition, un objectif, une action et au moins un jour.
+3. Créer le plan : l'écran « Aujourd'hui » apparaît.
+4. Cocher une action, choisir une humeur, saisir une note.
+5. Clôturer la journée : l'action restante éventuelle passe à manquée.
+6. Ouvrir le suivi : la série, les jours clôturés et les actions se mettent à jour.
+7. Exporter les données : le JSON contient plans, objectifs, actions, occurrences et journal.
 
 ## Limites connues de cette version
 

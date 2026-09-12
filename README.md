@@ -6,9 +6,9 @@ Le problème que ce projet attaque n'est pas l'introspection — c'est la **cons
 
 ## État du projet
 
-La v1 est implémentée : bilan de bout en bout (53 questions), gel du bilan, export et suppression des données, APK Android compilable. Le détail de ce qui a été vérifié est ici : [`VERIFICATION-v0.1.md`](VERIFICATION-v0.1.md).
+La v1 locale est implémentée : bilan de bout en bout (53 questions), gel du bilan, plan manuel, écran du jour, suivi de constance, export et suppression des données. Le détail de ce qui a été vérifié est ici : [`VERIFICATION-v0.1.md`](VERIFICATION-v0.1.md).
 
-Le suivi quotidien et la génération automatique du plan sur 12 mois arrivent dans une prochaine version.
+La génération automatique du plan sur 12 mois arrive dans une prochaine version.
 
 La spécification de la v1 est ici : [`docs/superpowers/specs/2026-09-10-childeric-design.md`](docs/superpowers/specs/2026-09-10-childeric-design.md)
 
@@ -25,6 +25,10 @@ Une application Android autonome (APK), installable directement, sans serveur.
 | Génération du plan | Appel unique à l'API Claude depuis l'appareil, avec la clé de l'utilisateur |
 
 Le geste quotidien vise **30 secondes** : trois à six lignes à cocher, une humeur, une note facultative.
+
+## Routine offline
+
+Après le bilan gelé, Childeric permet de créer un plan manuel, de générer les 8 premières semaines d'actions, puis de suivre chaque journée avec actions à cocher, humeur, note et clôture. Cette boucle reste 100% locale.
 
 ## Confidentialité
 

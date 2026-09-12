@@ -58,8 +58,7 @@ export class DepotSuiviSql {
        FROM occurrences
        INNER JOIN actions ON actions.id = occurrences.action_id
        WHERE occurrences.date_prevue = ?
-       ORDER BY actions.ordre
-       LIMIT 6`,
+       ORDER BY actions.ordre`,
       [date],
     );
     const journaux = await this.pilote.lire<LigneJournal>('SELECT * FROM journal_jours WHERE date = ?', [date]);

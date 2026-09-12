@@ -24,12 +24,36 @@ async function contexte() {
   return { depotPlan, depotSuivi, plan };
 }
 
+async function contexteAvecSeptActions() {
+  const pilote = new PiloteNode();
+  await migrer(pilote);
+  const depotBilan = new DepotBilanSql(pilote, () => '2026-09-14');
+  const bilan = await depotBilan.creerBrouillon();
+  await depotBilan.geler(bilan.id);
+  const depotPlan = new DepotPlanSql(pilote, () => '2026-09-14');
+  await depotPlan.creerDepuisBilanGele({
+    bilanId: bilan.id,
+    ambition: 'Tenir une direction claire',
+    objectifs: [{
+      titre: 'Écrire',
+      actions: Array.from({ length: 7 }, (_, index) => ({ titre: `Action ${index + 1}`, jours: [1] })),
+    }],
+  });
+  return new DepotSuiviSql(pilote, () => '2026-09-14');
+}
+
 test('lit les actions prévues pour une journée', async () => {
   const { depotSuivi } = await contexte();
   const journee = await depotSuivi.journee('2026-09-14');
   expect(journee.occurrences).toHaveLength(1);
   expect(journee.occurrences[0].titre).toBe('Écrire 10 lignes');
   expect(journee.cloturee).toBe(false);
+});
+
+test('renvoie toutes les actions du jour pour laisser l écran limiter l affichage', async () => {
+  const depotSuivi = await contexteAvecSeptActions();
+  const journee = await depotSuivi.journee('2026-09-14');
+  expect(journee.occurrences).toHaveLength(7);
 });
 
 test('coche et décoche une occurrence', async () => {

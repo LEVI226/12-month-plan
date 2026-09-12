@@ -24,7 +24,9 @@ export type IconName =
   | 'flame'
   | 'info'
   | 'shield'
-  | 'book';
+  | 'book'
+  | 'bell'
+  | 'rotate';
 
 interface Props {
   name: IconName;
@@ -209,6 +211,24 @@ function renderShape(name: IconName, c: string, p: object) {
         <>
           <Path d="M4 5 C7.5 4 10 4 12 5.2 C14 4 16.5 4 20 5 V19 C16.5 18 14 18 12 19.2 C10 18 7.5 18 4 19 Z" {...p} />
           <Line x1={12} y1={5.2} x2={12} y2={19.2} {...p} />
+        </>
+      );
+    case 'bell':
+      return (
+        <>
+          <Path d="M6 16 C6 11 6.5 6.5 12 6.5 C17.5 6.5 18 11 18 16 Z" {...p} />
+          <Line x1={4.5} y1={16} x2={19.5} y2={16} {...p} />
+          <Path d="M10 19.5 a2 2 0 0 0 4 0" {...p} />
+          <Line x1={12} y1={3.2} x2={12} y2={5} {...p} />
+        </>
+      );
+    case 'rotate':
+      return (
+        <>
+          <Path d="M4.5 12 A7.5 7.5 0 0 1 18.5 7.3" {...p} />
+          <Polyline points="18.5,3.3 18.5,7.6 14.2,7.6" {...p} />
+          <Path d="M19.5 12 A7.5 7.5 0 0 1 5.5 16.7" {...p} />
+          <Polyline points="5.5,20.7 5.5,16.4 9.8,16.4" {...p} />
         </>
       );
     default:

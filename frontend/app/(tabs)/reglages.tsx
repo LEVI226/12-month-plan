@@ -1,7 +1,8 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { Platform, Pressable, Share, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Linking, Platform, Pressable, Share, Switch, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -15,20 +16,115 @@ import { Txt } from '@/src/components/Txt';
 import { Button } from '@/src/components/Button';
 import { Icon, IconName } from '@/src/components/Icon';
 import { useStore } from '@/src/store/AppStore';
+import {
+  cancelDailyReminder,
+  getPermissionStatus,
+  requestPermission,
+  scheduleDailyReminder,
+  sendTestNotification,
+} from '@/src/lib/notifications';
+
+const REMINDER_TIMES = ['07:00', '08:00', '12:00', '18:00', '20:00', '21:00', '22:00'];
 
 export default function Reglages() {
   const s = useStyles();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { state, buildExport, buildSummary, deleteAll } = useStore();
+  const { state, saveSettings, buildExport, buildSummary, deleteAll } = useStore();
 
   const [toast, setToast] = useState<string | null>(null);
   const sheetRef = useRef<BottomSheetModal>(null);
+  const [permGranted, setPermGranted] = useState(false);
+  const [canAskAgain, setCanAskAgain] = useState(true);
+  const [sendingTest, setSendingTest] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2600);
+  };
+
+  useEffect(() => {
+    getPermissionStatus().then((r) => {
+      setPermGranted(r.granted);
+      setCanAskAgain(r.canAskAgain);
+    });
+  }, []);
+
+  const reminderTime = state.settings?.reminderTime ?? '20:00';
+  const reminderEnabled = !!state.settings?.reminderEnabled && permGranted;
+
+  const persistSettings = (patch: Partial<NonNullable<typeof state.settings>>) => {
+    if (!state.settings) return;
+    saveSettings({ ...state.settings, ...patch });
+  };
+
+  const activateReminder = async () => {
+    const req = await requestPermission();
+    setPermGranted(req.granted);
+    setCanAskAgain(req.canAskAgain);
+    if (req.granted) {
+      await scheduleDailyReminder(reminderTime, state.settings?.firstName);
+      persistSettings({ reminderEnabled: true });
+    } else {
+      showToast('Notifications refusées. Vous pouvez réessayer plus tard.');
+    }
+  };
+
+  const onToggleReminder = async (value: boolean) => {
+    Haptics.selectionAsync();
+    if (!value) {
+      await cancelDailyReminder();
+      persistSettings({ reminderEnabled: false });
+      return;
+    }
+    const status = await getPermissionStatus();
+    if (status.granted) {
+      await scheduleDailyReminder(reminderTime, state.settings?.firstName);
+      persistSettings({ reminderEnabled: true });
+      return;
+    }
+    if (!status.canAskAgain) {
+      Alert.alert(
+        'Notifications désactivées',
+        "Autorisez les notifications dans les réglages de votre téléphone pour recevoir votre rappel quotidien.",
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Ouvrir les réglages', onPress: () => Linking.openSettings() },
+        ]
+      );
+      return;
+    }
+    Alert.alert(
+      'Rappel quotidien',
+      "Autorisez les notifications pour recevoir un rappel à l'heure choisie. Tout reste sur cet appareil.",
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Continuer', onPress: activateReminder },
+      ]
+    );
+  };
+
+  const onPickReminderTime = async (t: string) => {
+    Haptics.selectionAsync();
+    persistSettings({ reminderTime: t });
+    if (reminderEnabled) {
+      await scheduleDailyReminder(t, state.settings?.firstName);
+    }
+  };
+
+  const onTestNotification = async () => {
+    if (!permGranted) {
+      showToast('Activez le rappel pour tester une notification.');
+      return;
+    }
+    setSendingTest(true);
+    try {
+      await sendTestNotification();
+      showToast('Notification envoyée, elle arrive dans 3 secondes.');
+    } finally {
+      setSendingTest(false);
+    }
   };
 
   const onExportJson = async () => {
@@ -62,7 +158,7 @@ export default function Reglages() {
   const onConfirmDelete = () => {
     sheetRef.current?.dismiss();
     deleteAll();
-    router.replace('/');
+    router.replace('/onboarding');
   };
 
   const renderBackdrop = useCallback(
@@ -86,17 +182,88 @@ export default function Reglages() {
             <Txt variant="subtitle">Vos données vous appartiennent</Txt>
           </View>
           <Txt variant="small" style={{ marginTop: spacing.sm }}>
-            Tout est stocké uniquement sur ce téléphone. Rien n'est envoyé en ligne. Vous
+            Tout est stocké uniquement sur ce téléphone. Rien n&apos;est envoyé en ligne. Vous
             décidez seul(e) de partager ou non.
           </Txt>
         </View>
 
-        {/* Reminder info */}
-        <Row
-          icon="calendar"
-          title="Point quotidien"
-          subtitle={state.settings?.reminderTime ? `Chaque jour vers ${state.settings.reminderTime}` : '—'}
-        />
+        {/* Reminder */}
+        <View style={s.group}>
+          <View style={s.reminderHead}>
+            <View style={s.rowIcon}>
+              <Icon name="bell" size={20} color={colors.brandPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Txt variant="bodyStrong">Rappel quotidien</Txt>
+              <Txt variant="small" color={colors.muted}>
+                {reminderEnabled
+                  ? `Notification chaque jour à ${reminderTime}`
+                  : 'Recevez une vraie notification pour ne jamais oublier'}
+              </Txt>
+            </View>
+            <Switch
+              testID="reminder-toggle"
+              value={reminderEnabled}
+              onValueChange={onToggleReminder}
+              trackColor={{ false: colors.surfaceTertiary, true: colors.brandPrimary }}
+              thumbColor={Platform.OS === 'android' ? colors.surface : undefined}
+            />
+          </View>
+
+          {!permGranted && !canAskAgain ? (
+            <View style={s.warnBox}>
+              <Icon name="info" size={16} color={colors.error} />
+              <Txt variant="small" color={colors.error} style={{ flex: 1 }}>
+                Notifications bloquées dans les réglages du téléphone.
+              </Txt>
+              <Pressable onPress={() => Linking.openSettings()} testID="open-settings-button">
+                <Txt variant="label" color={colors.error}>
+                  Réglages
+                </Txt>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <Txt variant="label" color={colors.muted} style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>
+            Heure du rappel
+          </Txt>
+          <View style={s.chipsWrap}>
+            {REMINDER_TIMES.map((t) => {
+              const active = t === reminderTime;
+              return (
+                <Pressable
+                  key={t}
+                  testID={`settings-reminder-time-${t}`}
+                  onPress={() => onPickReminderTime(t)}
+                  style={[
+                    s.timeChip,
+                    { backgroundColor: active ? colors.brandPrimary : colors.surfaceTertiary },
+                  ]}
+                >
+                  <Txt variant="bodyStrong" color={active ? colors.onBrandPrimary : colors.onSurfaceSecondary}>
+                    {t}
+                  </Txt>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Pressable
+            testID="test-notification-button"
+            onPress={onTestNotification}
+            disabled={sendingTest}
+            style={[s.testRow, sendingTest && { opacity: 0.5 }]}
+          >
+            <Icon name="sparkle" size={16} color={colors.brandPrimary} />
+            <Txt variant="bodyStrong" color={colors.brandPrimary}>
+              Tester le rappel maintenant
+            </Txt>
+          </Pressable>
+          <Txt variant="small" color={colors.muted} style={{ marginTop: spacing.sm }}>
+            Une notification locale, sans compte ni serveur. Pour une fiabilité totale au fil
+            des jours, générez un build via le bouton Publier.
+          </Txt>
+        </View>
 
         {/* Export */}
         <View style={s.group}>
@@ -133,7 +300,7 @@ export default function Reglages() {
         </Pressable>
 
         <Txt variant="small" color={colors.muted} center style={{ marginTop: 'auto' }}>
-          Childeric · un pas après l'autre
+          Childeric · un pas après l&apos;autre
         </Txt>
       </View>
 
@@ -186,24 +353,6 @@ export default function Reglages() {
   );
 }
 
-function Row({ icon, title, subtitle }: { icon: IconName; title: string; subtitle: string }) {
-  const s = useStyles();
-  const { colors } = useTheme();
-  return (
-    <View style={s.row}>
-      <View style={s.rowIcon}>
-        <Icon name={icon} size={20} color={colors.onSurfaceSecondary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Txt variant="bodyStrong">{title}</Txt>
-        <Txt variant="small" color={colors.muted}>
-          {subtitle}
-        </Txt>
-      </View>
-    </View>
-  );
-}
-
 function ActionRow({
   icon,
   title,
@@ -250,6 +399,29 @@ const useStyles = makeStyles((c) => ({
   privacy: { backgroundColor: c.brandTertiary, borderRadius: radius.lg, padding: spacing.lg },
   privacyHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   group: { backgroundColor: c.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg },
+  reminderHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  warnBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: c.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  timeChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+  },
+  testRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    alignSelf: 'flex-start',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

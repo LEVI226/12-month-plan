@@ -1,22 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { makeStyles, radius, spacing, useTheme } from '@/src/theme';
 import { Txt } from '@/src/components/Txt';
 import { Button } from '@/src/components/Button';
 import { Icon } from '@/src/components/Icon';
 import { useStore } from '@/src/store/AppStore';
-import { DAY_LABELS_SHORT } from '@/src/lib/date';
-import { fromKey } from '@/src/lib/date';
+import { DAY_LABELS_SHORT, todayKey } from '@/src/lib/date';
+import { cycleEndKey, isCycleEnded } from '@/src/lib/plan';
 
 export default function PlanTab() {
   const s = useStyles();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { state } = useStore();
+  const { state, startNewCycle } = useStore();
   const plan = state.plan;
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2600);
+  };
 
   if (!plan) {
     return (
@@ -46,6 +54,14 @@ export default function PlanTab() {
 
   const createdDate = new Date(plan.createdAt);
   const totalActions = plan.objectives.reduce((n, o) => n + o.actions.length, 0);
+  const ended = isCycleEnded(plan, todayKey());
+  const endDate = new Date(cycleEndKey(plan));
+
+  const onRestartCycle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    startNewCycle();
+    showToast('Nouveau cycle de 8 semaines lancé à partir d\u2019aujourd\u2019hui.');
+  };
 
   return (
     <View style={s.root}>
@@ -61,11 +77,41 @@ export default function PlanTab() {
         contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing['2xl'], gap: spacing.lg }}
         showsVerticalScrollIndicator={false}
       >
+        {ended ? (
+          <View style={s.cycleCard} testID="cycle-ended-card">
+            <View style={s.compassHead}>
+              <Icon name="rotate" size={20} color={colors.brandPrimary} strokeWidth={2} />
+              <Txt variant="overline" color={colors.brandPrimary}>
+                Cycle de 8 semaines terminé
+              </Txt>
+            </View>
+            <Txt variant="body" style={{ marginTop: spacing.sm, marginBottom: spacing.lg }}>
+              Vos 8 semaines sont passées. Continuez votre lancée avec le même plan, ou
+              ajustez-le avant de repartir.
+            </Txt>
+            <Button
+              testID="restart-cycle-button"
+              label="Relancer 8 nouvelles semaines"
+              icon="rotate"
+              onPress={onRestartCycle}
+              haptic="medium"
+            />
+            <View style={{ height: spacing.md }} />
+            <Button
+              testID="adjust-plan-button"
+              label="Ajuster mon plan"
+              icon="pencil"
+              variant="secondary"
+              onPress={() => router.push('/plan-create?mode=adjust')}
+            />
+          </View>
+        ) : null}
+
         <View style={s.compass}>
           <View style={s.compassHead}>
             <Icon name="target" size={18} color={colors.brandPrimary} strokeWidth={2} />
             <Txt variant="overline" color={colors.brandPrimary}>
-              Ambition de l'année
+              Ambition de l&apos;année
             </Txt>
           </View>
           <Txt variant="title" style={{ marginTop: spacing.sm }}>
@@ -121,11 +167,24 @@ export default function PlanTab() {
         <View style={s.note}>
           <Icon name="info" size={16} color={colors.muted} />
           <Txt variant="small" color={colors.muted} style={{ flex: 1 }}>
-            Créé le {createdDate.getDate()}/{createdDate.getMonth() + 1}. Votre plan couvre 8
-            semaines de petits pas.
+            {ended
+              ? `Ce cycle courait jusqu'au ${endDate.getDate()}/${endDate.getMonth() + 1}.`
+              : `Créé le ${createdDate.getDate()}/${createdDate.getMonth() + 1}. Votre plan couvre 8 semaines de petits pas.`}
           </Txt>
         </View>
       </ScrollView>
+
+      {toast ? (
+        <Animated.View
+          entering={FadeInDown}
+          exiting={FadeOut}
+          style={[s.toast, { bottom: insets.bottom + spacing.xl }]}
+        >
+          <Txt variant="bodyStrong" color={colors.onSurfaceInverse} center>
+            {toast}
+          </Txt>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -139,6 +198,7 @@ const useStyles = makeStyles((c) => ({
     borderBottomColor: c.divider,
   },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  cycleCard: { backgroundColor: c.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: c.brandPrimary },
   compass: { backgroundColor: c.brandTertiary, borderRadius: radius.lg, padding: spacing.lg },
   compassHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   objCard: { backgroundColor: c.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg },
@@ -164,5 +224,13 @@ const useStyles = makeStyles((c) => ({
     gap: spacing.sm,
     alignItems: 'center',
     paddingHorizontal: spacing.xs,
+  },
+  toast: {
+    position: 'absolute',
+    left: spacing.xl,
+    right: spacing.xl,
+    backgroundColor: c.surfaceInverse,
+    borderRadius: radius.md,
+    padding: spacing.lg,
   },
 }));

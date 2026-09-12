@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   KeyboardAwareScrollView,
@@ -17,6 +17,7 @@ import { useStore } from '@/src/store/AppStore';
 import { PlanObjective } from '@/src/lib/plan';
 import { DAY_LABELS_SHORT, DAY_LABELS_FULL } from '@/src/lib/date';
 import { PLAN_ACTION_EXAMPLES } from '@/src/data/bilan';
+import { hasAnyAnswer, suggestPlan } from '@/src/lib/suggest';
 
 const PLAN_HERO =
   'https://images.unsplash.com/photo-1637689113621-73951984fcc1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbW9ybmluZyUyMGNvZmZlZSUyMHN1bmxpZ2h0JTIwam91cm5hbHxlbnwwfHx8fDE3ODkyNDc1NjZ8MA&ixlib=rb-4.1.0&q=85';
@@ -43,10 +44,31 @@ export default function PlanCreate() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { state, createPlan } = useStore();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const isAdjust = params.mode === 'adjust';
+  const { ready, state, createPlan, startNewCycle } = useStore();
 
   const [ambition, setAmbition] = useState('');
   const [objectives, setObjectives] = useState<LocalObjective[]>([newObjective()]);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [prefilledFromPlan, setPrefilledFromPlan] = useState(false);
+
+  // On a fresh page load / deep link, the store hydrates from storage
+  // asynchronously, so `state.plan` may not be ready on first render yet.
+  // Sync the adjust-mode form once the store is ready and the plan exists.
+  useEffect(() => {
+    if (isAdjust && ready && state.plan && !prefilledFromPlan) {
+      setAmbition(state.plan.ambition);
+      setObjectives(
+        state.plan.objectives.map((o) => ({
+          id: o.id,
+          title: o.title,
+          actions: o.actions.map((a) => ({ id: a.id, title: a.title, days: [...a.days] })),
+        }))
+      );
+      setPrefilledFromPlan(true);
+    }
+  }, [isAdjust, ready, state.plan, prefilledFromPlan]);
 
   const patchObjective = (id: string, patch: Partial<LocalObjective>) =>
     setObjectives((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
@@ -116,8 +138,35 @@ export default function PlanCreate() {
 
   const canCreate = ambition.trim().length > 0 && cleaned.length > 0;
 
+  const isPristine =
+    !isAdjust &&
+    ambition.trim() === '' &&
+    objectives.length === 1 &&
+    !objectives[0].title.trim() &&
+    objectives[0].actions.length === 1 &&
+    !objectives[0].actions[0].title.trim();
+  const showSuggestion = isPristine && !suggestionDismissed && hasAnyAnswer(state.bilan.answers);
+
+  const applySuggestion = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const sug = suggestPlan(state.bilan.answers);
+    setAmbition(sug.ambition);
+    setObjectives(
+      sug.objectives.map((o) => ({
+        id: uid('o'),
+        title: o.title,
+        actions: o.actions.map((a) => ({ id: uid('a'), title: a.title, days: a.days })),
+      }))
+    );
+    setSuggestionDismissed(true);
+  };
+
   const onCreate = () => {
-    createPlan(ambition.trim(), cleaned);
+    if (isAdjust) {
+      startNewCycle(ambition.trim(), cleaned);
+    } else {
+      createPlan(ambition.trim(), cleaned);
+    }
     router.replace('/(tabs)');
   };
 
@@ -134,20 +183,54 @@ export default function PlanCreate() {
           <LinearGradient colors={['rgba(28,31,26,0.15)', 'rgba(28,31,26,0.72)']} style={s.heroScrim} />
           <View style={[s.heroText, { paddingBottom: spacing.lg }]}>
             <Txt variant="overline" color="#FFFFFF">
-              Étape finale
+              {isAdjust ? 'Nouveau cycle' : 'Étape finale'}
             </Txt>
             <Txt variant="display" color="#FFFFFF">
-              Construire mon plan
+              {isAdjust ? 'Ajuster mon plan' : 'Construire mon plan'}
             </Txt>
           </View>
         </View>
 
         <View style={s.body}>
+          {showSuggestion ? (
+            <View style={s.suggestCard} testID="plan-suggestion-card">
+              <View style={s.compassHead}>
+                <Icon name="sparkle" size={18} color={colors.brandPrimary} strokeWidth={2} />
+                <Txt variant="overline" color={colors.brandPrimary}>
+                  Proposition à partir de votre bilan
+                </Txt>
+              </View>
+              <Txt variant="small" style={{ marginTop: spacing.xs, marginBottom: spacing.md }}>
+                Un point de départ construit à partir de vos réponses, pour démarrer plus
+                vite. Vous pourrez tout modifier ensuite.
+              </Txt>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    testID="use-suggestion-button"
+                    label="Utiliser"
+                    icon="sparkle"
+                    onPress={applySuggestion}
+                    haptic="light"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    testID="dismiss-suggestion-button"
+                    label="Non merci"
+                    variant="ghost"
+                    onPress={() => setSuggestionDismissed(true)}
+                  />
+                </View>
+              </View>
+            </View>
+          ) : null}
+
           {/* Ambition */}
           <View style={s.compass}>
             <View style={s.compassHead}>
               <Icon name="target" size={20} color={colors.brandPrimary} strokeWidth={2} />
-              <Txt variant="subtitle">Votre ambition de l'année</Txt>
+              <Txt variant="subtitle">Votre ambition de l&apos;année</Txt>
             </View>
             <Txt variant="small" style={{ marginTop: spacing.xs, marginBottom: spacing.md }}>
               Votre cap. Une phrase simple qui vous guidera.
@@ -263,7 +346,7 @@ export default function PlanCreate() {
         <View style={[s.footer, { paddingBottom: insets.bottom + spacing.md }]}>
           <Button
             testID="plan-create-button"
-            label="Créer mon plan"
+            label={isAdjust ? 'Valider les ajustements' : 'Créer mon plan'}
             icon="check"
             onPress={onCreate}
             disabled={!canCreate}
@@ -282,6 +365,13 @@ const useStyles = makeStyles((c) => ({
   heroScrim: { ...StyleSheetAbsolute() },
   heroText: { paddingHorizontal: spacing.xl },
   body: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, gap: spacing.lg },
+  suggestCard: {
+    backgroundColor: c.surfaceSecondary,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: c.brandPrimary,
+  },
   compass: {
     backgroundColor: c.brandTertiary,
     borderRadius: radius.lg,

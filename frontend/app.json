@@ -29,7 +29,13 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "color": "#6A816C"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

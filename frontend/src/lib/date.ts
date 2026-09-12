@@ -80,3 +80,9 @@ export function detectTimezone(): string {
 export function startOfWeek(d: Date): Date {
   return addDays(d, -weekdayMon0(d));
 }
+
+// Whole days between two YYYY-MM-DD keys (b - a). Positive if b is after a.
+export function daysBetween(a: string, b: string): number {
+  const ms = fromKey(b).getTime() - fromKey(a).getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24));
+}

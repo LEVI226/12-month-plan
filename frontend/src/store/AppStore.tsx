@@ -13,7 +13,7 @@ import {
   Plan,
   PlanObjective,
 } from '@/src/lib/plan';
-import { todayKey } from '@/src/lib/date';
+import { daysBetween, todayKey } from '@/src/lib/date';
 
 const STORAGE_KEY = 'childeric:v1';
 
@@ -21,6 +21,8 @@ export interface Settings {
   firstName: string;
   reminderTime: string;
   timezone: string;
+  reminderEnabled?: boolean;
+  lastSeenKey?: string;
 }
 
 export interface Bilan {
@@ -42,6 +44,8 @@ export interface AppState {
   plan: Plan | null;
   occurrences: Occurrence[];
   journal: Record<string, DayLog>;
+  celebratedBadgeIds: string[];
+  hasComeback: boolean;
 }
 
 const EMPTY_STATE: AppState = {
@@ -50,6 +54,8 @@ const EMPTY_STATE: AppState = {
   plan: null,
   occurrences: [],
   journal: {},
+  celebratedBadgeIds: [],
+  hasComeback: false,
 };
 
 interface StoreValue {
@@ -59,11 +65,14 @@ interface StoreValue {
   setAnswer: (qid: string, value: string) => void;
   freezeBilan: () => void;
   createPlan: (ambition: string, objectives: PlanObjective[]) => void;
+  startNewCycle: (ambition?: string, objectives?: PlanObjective[]) => void;
   toggleOccurrence: (id: string) => void;
   setMood: (dateKey: string, mood: number) => void;
   setNote: (dateKey: string, note: string) => void;
   closeDay: (dateKey: string) => void;
   occurrencesForDate: (dateKey: string) => Occurrence[];
+  touchLastSeen: () => number;
+  markBadgesSeen: (ids: string[]) => void;
   buildExport: () => object;
   buildSummary: () => string;
   deleteAll: () => void;
@@ -80,7 +89,13 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const saved = await storage.getJSON<AppState>(STORAGE_KEY);
       if (saved) {
-        setState({ ...EMPTY_STATE, ...saved, bilan: saved.bilan ?? EMPTY_STATE.bilan });
+        setState({
+          ...EMPTY_STATE,
+          ...saved,
+          bilan: saved.bilan ?? EMPTY_STATE.bilan,
+          celebratedBadgeIds: saved.celebratedBadgeIds ?? [],
+          hasComeback: saved.hasComeback ?? false,
+        });
       }
       loaded.current = true;
       setReady(true);
@@ -120,6 +135,19 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
             startKey: todayKey(),
           };
           return { ...prev, plan, occurrences: generateOccurrences(plan) };
+        }),
+      startNewCycle: (ambition, objectives) =>
+        setState((prev) => {
+          if (!prev.plan) return prev;
+          const nextPlan: Plan = {
+            ambition: ambition ?? prev.plan.ambition,
+            objectives: objectives ?? prev.plan.objectives,
+            createdAt: prev.plan.createdAt,
+            startKey: todayKey(),
+            cyclesCompleted: (prev.plan.cyclesCompleted ?? 0) + 1,
+          };
+          const newOcc = generateOccurrences(nextPlan);
+          return { ...prev, plan: nextPlan, occurrences: [...prev.occurrences, ...newOcc] };
         }),
       toggleOccurrence: (id) =>
         setState((prev) => {
@@ -170,6 +198,27 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         })),
       occurrencesForDate: (dateKey) =>
         state.occurrences.filter((o) => o.date === dateKey),
+      touchLastSeen: () => {
+        const prevKey = state.settings?.lastSeenKey;
+        const today = todayKey();
+        let daysAbsent = 0;
+        if (prevKey && prevKey !== today) {
+          daysAbsent = daysBetween(prevKey, today);
+        }
+        if (prevKey !== today) {
+          setState((prev) => ({
+            ...prev,
+            settings: prev.settings ? { ...prev.settings, lastSeenKey: today } : prev.settings,
+            hasComeback: prev.hasComeback || daysAbsent >= 2,
+          }));
+        }
+        return daysAbsent;
+      },
+      markBadgesSeen: (ids) =>
+        setState((prev) => ({
+          ...prev,
+          celebratedBadgeIds: Array.from(new Set([...prev.celebratedBadgeIds, ...ids])),
+        })),
       buildExport: () => ({
         app: 'Childeric',
         exportedAt: new Date().toISOString(),

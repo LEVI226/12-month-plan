@@ -14,7 +14,7 @@ import { Txt } from '@/src/components/Txt';
 import { Button } from '@/src/components/Button';
 import { Icon } from '@/src/components/Icon';
 import { useStore } from '@/src/store/AppStore';
-import { detectTimezone } from '@/src/lib/date';
+import { detectTimezone, todayKey } from '@/src/lib/date';
 
 const WELCOME_BG =
   'https://images.unsplash.com/photo-1714636608872-048fc9231892?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxzb2Z0JTIwYmVpZ2UlMjB3YXRlcmNvbG9yJTIwYWJzdHJhY3QlMjB0ZXh0dXJlfGVufDB8fHx8MTc4OTI0NzU2Nnww&ixlib=rb-4.1.0&q=85';
@@ -35,7 +35,13 @@ export default function Onboarding() {
   const canStart = firstName.trim().length > 0;
 
   const onStart = () => {
-    saveSettings({ firstName: firstName.trim(), reminderTime, timezone });
+    saveSettings({
+      firstName: firstName.trim(),
+      reminderTime,
+      timezone,
+      reminderEnabled: false,
+      lastSeenKey: todayKey(),
+    });
     router.replace('/bilan');
   };
 

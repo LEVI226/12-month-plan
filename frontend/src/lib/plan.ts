@@ -19,6 +19,7 @@ export interface Plan {
   objectives: PlanObjective[];
   createdAt: string;
   startKey: string;
+  cyclesCompleted?: number;
 }
 
 export interface Occurrence {
@@ -32,6 +33,15 @@ export interface Occurrence {
 }
 
 export const PLAN_WEEKS = 8;
+
+// Last day (inclusive) of the current 8-week cycle for a plan.
+export function cycleEndKey(plan: Plan): string {
+  return toKey(addDays(fromKey(plan.startKey), PLAN_WEEKS * 7 - 1));
+}
+
+export function isCycleEnded(plan: Plan, todayK: string): boolean {
+  return todayK > cycleEndKey(plan);
+}
 
 export function generateOccurrences(plan: Plan): Occurrence[] {
   const start = fromKey(plan.startKey);

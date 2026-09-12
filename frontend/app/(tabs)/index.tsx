@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
 } from 'react-native-keyboard-controller';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { makeStyles, radius, spacing, useTheme } from '@/src/theme';
 import { Txt } from '@/src/components/Txt';
 import { Button } from '@/src/components/Button';
@@ -13,13 +14,16 @@ import { Icon } from '@/src/components/Icon';
 import { MoodSelector } from '@/src/components/MoodSelector';
 import { useStore } from '@/src/store/AppStore';
 import { capitalize, formatLongFr, todayKey } from '@/src/lib/date';
-import { Occurrence } from '@/src/lib/plan';
+import { Occurrence, isCycleEnded } from '@/src/lib/plan';
 
 export default function Today() {
   const s = useStyles();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { state, occurrencesForDate, toggleOccurrence, setMood, setNote, closeDay } = useStore();
+  const { state, occurrencesForDate, toggleOccurrence, setMood, setNote, closeDay, touchLastSeen } =
+    useStore();
+
+  const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
 
   const key = todayKey();
   const dayLog = state.journal[key] ?? {};
@@ -28,6 +32,26 @@ export default function Today() {
   const visible = occ.slice(0, 6);
   const extra = occ.length - visible.length;
   const doneCount = occ.filter((o) => o.status === 'done').length;
+  const allDone = occ.length > 0 && doneCount === occ.length;
+  const cycleEnded = !!state.plan && isCycleEnded(state.plan, key) && occ.length === 0;
+
+  useEffect(() => {
+    const daysAbsent = touchLastSeen();
+    if (daysAbsent >= 2) {
+      const name = state.settings?.firstName;
+      setWelcomeMsg(
+        `Content de vous revoir${name ? `, ${name}` : ''}. ${daysAbsent} jours sans passer, ce n'est pas grave. Un petit pas aujourd'hui suffit pour repartir en douceur.`
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onToggle = (o: Occurrence) => {
+    Haptics.impactAsync(
+      o.status === 'done' ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium
+    );
+    toggleOccurrence(o.id);
+  };
 
   return (
     <View style={s.root}>
@@ -35,7 +59,7 @@ export default function Today() {
         <Txt variant="small" color={colors.muted}>
           Bonjour {state.settings?.firstName ?? ''}
         </Txt>
-        <Txt variant="display">Aujourd'hui</Txt>
+        <Txt variant="display">Aujourd&apos;hui</Txt>
         <Txt variant="bodyStrong" color={colors.brandPrimary}>
           {capitalize(formatLongFr(new Date()))}
         </Txt>
@@ -47,6 +71,28 @@ export default function Today() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {welcomeMsg ? (
+          <Animated.View entering={FadeIn} exiting={FadeOut} style={s.welcomeBanner} testID="welcome-back-banner">
+            <Icon name="sun" size={20} color={colors.brandPrimary} strokeWidth={2} />
+            <Txt variant="bodyStrong" style={{ flex: 1 }}>
+              {welcomeMsg}
+            </Txt>
+            <Pressable onPress={() => setWelcomeMsg(null)} hitSlop={10} testID="dismiss-welcome-back">
+              <Icon name="x" size={16} color={colors.muted} />
+            </Pressable>
+          </Animated.View>
+        ) : null}
+
+        {cycleEnded ? (
+          <View style={s.cycleNote}>
+            <Icon name="rotate" size={18} color={colors.brandPrimary} strokeWidth={2} />
+            <Txt variant="bodyStrong" style={{ flex: 1 }}>
+              Votre cycle de 8 semaines est terminé. Ouvrez l&apos;onglet Plan pour relancer ou
+              ajuster votre parcours.
+            </Txt>
+          </View>
+        ) : null}
+
         {closed ? (
           <Animated.View entering={FadeIn} style={s.closedBanner}>
             <Icon name="check" size={18} color={colors.onBrand} strokeWidth={2.4} />
@@ -64,13 +110,16 @@ export default function Today() {
                 {doneCount}/{occ.length} fait{doneCount > 1 ? 's' : ''}
               </Txt>
             </View>
+            {allDone && !closed ? (
+              <Animated.View entering={FadeIn} style={s.allDoneBanner} testID="all-done-banner">
+                <Icon name="sparkle" size={18} color={colors.onBrandPrimary} strokeWidth={2} />
+                <Txt variant="bodyStrong" color={colors.onBrandPrimary}>
+                  Bravo, tout est fait aujourd&apos;hui !
+                </Txt>
+              </Animated.View>
+            ) : null}
             {visible.map((o) => (
-              <ActionCard
-                key={o.id}
-                occ={o}
-                disabled={closed}
-                onToggle={() => toggleOccurrence(o.id)}
-              />
+              <ActionCard key={o.id} occ={o} disabled={closed} onToggle={() => onToggle(o)} />
             ))}
             {extra > 0 ? (
               <Txt variant="small" color={colors.muted} center>
@@ -78,17 +127,17 @@ export default function Today() {
               </Txt>
             ) : null}
           </View>
-        ) : (
+        ) : !cycleEnded ? (
           <View style={s.empty}>
             <Icon name="leaf" size={40} color={colors.brandPrimary} />
             <Txt variant="subtitle" center style={{ marginTop: spacing.md }}>
-              Aucune action prévue aujourd'hui
+              Aucune action prévue aujourd&apos;hui
             </Txt>
             <Txt variant="small" center style={{ marginTop: spacing.xs }}>
               Profitez de votre journée. Un petit pas demain compte déjà.
             </Txt>
           </View>
-        )}
+        ) : null}
 
         {/* Mood */}
         <View style={s.card}>
@@ -199,6 +248,33 @@ const useStyles = makeStyles((c) => ({
   closedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: c.brandPrimary,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  welcomeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: c.brandTertiary,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  cycleNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: c.surfaceSecondary,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: c.brandPrimary,
+  },
+  allDoneBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
     backgroundColor: c.brandPrimary,
     borderRadius: radius.md,

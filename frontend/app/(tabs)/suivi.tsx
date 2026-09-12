@@ -14,6 +14,7 @@ import {
   toKey,
   todayKey,
 } from '@/src/lib/date';
+import { Badge, computeBadges, getLevel } from '@/src/lib/badges';
 
 interface DayInfo {
   total: number;
@@ -58,6 +59,10 @@ export default function Suivi() {
     }
     return count;
   }, [state.journal]);
+
+  const badges = useMemo(() => computeBadges(state), [state]);
+  const level = getLevel(doneTotal);
+  const levelProgress = level.next ? (doneTotal - level.min) / (level.next - level.min) : 1;
 
   const cellColor = (dateKey: string): string => {
     const info = byDate[dateKey];
@@ -185,7 +190,82 @@ export default function Suivi() {
             </Txt>
           )}
         </View>
+
+        {/* Level / progression */}
+        <View style={s.card}>
+          <View style={s.levelHead}>
+            <View style={s.levelIcon}>
+              <Icon name="leaf" size={20} color={colors.brandPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Txt variant="subtitle">{level.name}</Txt>
+              <Txt variant="small" color={colors.muted}>
+                {doneTotal} petit{doneTotal > 1 ? 's' : ''} pas accompli
+                {doneTotal > 1 ? 's' : ''}
+              </Txt>
+            </View>
+          </View>
+          {level.next ? (
+            <>
+              <View style={s.levelTrack}>
+                <View style={[s.levelFill, { width: `${Math.min(100, Math.max(0, levelProgress * 100))}%` }]} />
+              </View>
+              <Txt variant="small" color={colors.muted} style={{ marginTop: spacing.xs }}>
+                {level.next - doneTotal} pas avant le niveau suivant
+              </Txt>
+            </>
+          ) : (
+            <Txt variant="small" color={colors.muted} style={{ marginTop: spacing.xs }}>
+              Niveau le plus élevé atteint. Bravo pour cette constance.
+            </Txt>
+          )}
+        </View>
+
+        {/* Badges */}
+        <View style={s.card}>
+          <Txt variant="subtitle" style={{ marginBottom: spacing.md }}>
+            Vos badges
+          </Txt>
+          <View style={s.badgeGrid}>
+            {badges.map((b) => (
+              <BadgeChip key={b.id} badge={b} />
+            ))}
+          </View>
+        </View>
       </ScrollView>
+    </View>
+  );
+}
+
+function BadgeChip({ badge }: { badge: Badge }) {
+  const s = useStyles();
+  const { colors } = useTheme();
+  return (
+    <View style={s.badgeItem} testID={`badge-${badge.id}`}>
+      <View
+        style={[
+          s.badgeIcon,
+          {
+            backgroundColor: badge.unlocked ? colors.brandTertiary : colors.surfaceTertiary,
+            opacity: badge.unlocked ? 1 : 0.5,
+          },
+        ]}
+      >
+        <Icon
+          name={badge.icon}
+          size={20}
+          color={badge.unlocked ? colors.brandPrimary : colors.muted}
+          strokeWidth={2}
+        />
+      </View>
+      <Txt
+        variant="small"
+        center
+        color={badge.unlocked ? colors.onSurface : colors.muted}
+        style={{ marginTop: spacing.xs }}
+      >
+        {badge.title}
+      </Txt>
     </View>
   );
 }
@@ -265,5 +345,30 @@ const useStyles = makeStyles((c) => ({
     flexWrap: 'wrap',
     gap: spacing.md,
     marginTop: spacing.lg,
+  },
+  levelHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  levelIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    backgroundColor: c.brandTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  levelTrack: {
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: c.surfaceTertiary,
+    overflow: 'hidden',
+  },
+  levelFill: { height: '100%', borderRadius: radius.pill, backgroundColor: c.brandPrimary },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg },
+  badgeItem: { width: '22%', alignItems: 'center' },
+  badgeIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }));

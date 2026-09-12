@@ -12,6 +12,8 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppStoreProvider } from '@/src/store/AppStore';
 import { useTheme } from '@/src/theme';
+import { ensureAndroidChannel } from '@/src/lib/notifications';
+import { BadgeCelebration } from '@/src/components/BadgeCelebration';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -32,6 +34,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    ensureAndroidChannel().catch(() => {});
+  }, []);
 
   const onLayout = useCallback(() => {}, []);
 
@@ -58,6 +64,7 @@ export default function RootLayout() {
                   <Stack.Screen name="plan-create" />
                   <Stack.Screen name="(tabs)" />
                 </Stack>
+                <BadgeCelebration />
               </BottomSheetModalProvider>
             </AppStoreProvider>
           </QueryClientProvider>

@@ -19,3 +19,39 @@ export async function supprimerTout(pilote: PiloteSql): Promise<void> {
     await pilote.executer(`DELETE FROM ${table}`);
   }
 }
+
+export async function exporterResumeRoutine(pilote: PiloteSql): Promise<string> {
+  const plans = await pilote.lire<{ id: string; ambition: string }>(
+    "SELECT id, ambition FROM plans WHERE statut = 'actif' ORDER BY rowid DESC LIMIT 1",
+  );
+  if (!plans.length) return 'Aucun plan actif.';
+
+  const plan = plans[0];
+  const objectifs = await pilote.lire<{ titre: string }>(
+    'SELECT titre FROM objectifs WHERE plan_id = ? ORDER BY ordre',
+    [plan.id],
+  );
+  const actions = await pilote.lire<{ titre: string }>(
+    'SELECT titre FROM actions WHERE plan_id = ? ORDER BY ordre',
+    [plan.id],
+  );
+  const journaux = await pilote.lire<{ date: string; humeur: number | null; note: string | null }>(
+    'SELECT date, humeur, note FROM journal_jours WHERE cloture_le IS NOT NULL ORDER BY date',
+  );
+
+  const lignes = [
+    'Childeric - résumé de routine',
+    `Ambition : ${plan.ambition}`,
+    '',
+    ...objectifs.map((objectif) => `Objectif : ${objectif.titre}`),
+    ...actions.map((action) => `Action : ${action.titre}`),
+    '',
+    `Jours clôturés : ${journaux.length}`,
+    ...journaux.flatMap((jour) => [
+      `${jour.date} - humeur ${jour.humeur ?? '-'}/5`,
+      ...(jour.note ? [`Note : ${jour.note}`] : []),
+    ]),
+  ];
+
+  return lignes.join('\n');
+}

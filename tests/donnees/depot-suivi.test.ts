@@ -54,3 +54,11 @@ test('clôture une journée et marque les actions restantes comme manquées', as
   }));
   expect(journee.occurrences[0].statut).toBe('manque');
 });
+
+test('lit les journaux clôturés pour le suivi', async () => {
+  const { depotSuivi } = await contexte();
+  await depotSuivi.cloturerJournee('2026-09-14', 4, 'Bonne reprise');
+  expect(await depotSuivi.journaux()).toEqual([
+    { date: '2026-09-14', humeur: 4, note: 'Bonne reprise', clotureLe: '2026-09-14' },
+  ]);
+});

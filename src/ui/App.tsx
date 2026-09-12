@@ -17,13 +17,6 @@ import { EcranSuivi } from './ecrans/Suivi';
 
 type Etape = 'chargement' | 'demarrage' | 'bilan' | 'plan' | 'jour' | 'suivi' | 'reglages';
 
-interface LigneJournal {
-  date: string;
-  humeur: number | null;
-  note: string | null;
-  cloture_le: string | null;
-}
-
 export function App() {
   const [pilote, setPilote] = useState<PiloteSql | null>(null);
   const [etape, setEtape] = useState<Etape>('chargement');
@@ -111,14 +104,11 @@ export function App() {
 
   async function afficherSuivi() {
     const depotPlan = new DepotPlanSql(pilote!, () => aujourdhuiLocal());
+    const depotSuivi = new DepotSuiviSql(pilote!, () => aujourdhuiLocal());
     const actif = plan ?? await depotPlan.planActif();
     const occurrences = actif ? await depotPlan.occurrences(actif.id) : [];
-    const journaux = await pilote!.lire<LigneJournal>('SELECT * FROM journal_jours ORDER BY date');
-    setStatistiques(calculerStatistiques(
-      journaux.map((j) => ({ date: j.date, humeur: j.humeur, note: j.note, clotureLe: j.cloture_le })),
-      occurrences,
-      aujourdhuiLocal(),
-    ));
+    const journaux = await depotSuivi.journaux();
+    setStatistiques(calculerStatistiques(journaux, occurrences, aujourdhuiLocal()));
     setEtape('suivi');
   }
 

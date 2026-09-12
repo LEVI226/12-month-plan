@@ -67,6 +67,11 @@ export class DepotSuiviSql {
     return { date, occurrences: occurrences.map(versOccurrence), journal, cloturee: Boolean(journal?.clotureLe) };
   }
 
+  async journaux(): Promise<JournalJour[]> {
+    const lignes = await this.pilote.lire<LigneJournal>('SELECT * FROM journal_jours ORDER BY date');
+    return lignes.map(versJournal);
+  }
+
   async cocherOccurrence(occurrenceId: string, faite: boolean): Promise<void> {
     await this.pilote.executer(
       'UPDATE occurrences SET statut = ?, fait_le = ? WHERE id = ?',

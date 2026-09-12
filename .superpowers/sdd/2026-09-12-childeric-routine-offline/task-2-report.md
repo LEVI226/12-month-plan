@@ -54,3 +54,43 @@ Résumé de sortie :
 ## Points d'attention
 
 - La commande ciblée passe avec l'avertissement Node standard : `SQLite is an experimental feature and might change at any time`.
+
+---
+
+# Fix round 1
+
+## Finding
+
+`creerDepuisBilanGele` enchaînait plusieurs écritures dépendantes sans transaction explicite : archivage du plan actif, insertion du nouveau plan, insertion des objectifs/actions, puis génération des occurrences. Une erreur tardive pouvait laisser un nouveau plan actif partiel ou archiver l'ancien plan sans création complète.
+
+## Fix summary
+
+- Ajout d'un test de régression simulant un échec sur l'insertion d'une action après l'archivage et l'insertion du nouveau plan.
+- Encapsulation de l'archivage, de la création du plan complet et de la génération des occurrences dans une transaction SQLite explicite `BEGIN` / `COMMIT`.
+- Ajout d'un `ROLLBACK` en cas d'erreur pour restaurer l'ancien plan actif et éviter tout plan partiel.
+
+## Commands run
+
+Commande RED :
+
+```bash
+node node_modules/vitest/vitest.mjs run tests/donnees/depot-plan.test.ts
+```
+
+Résumé de sortie RED :
+
+- Exit code : 1
+- Résultat : `Test Files 1 failed (1)`, `Tests 1 failed | 4 passed (5)`
+- Échec attendu : `planActif()` renvoyait le nouveau plan partiel au lieu du plan initial après l'erreur simulée.
+
+Commande GREEN :
+
+```bash
+node node_modules/vitest/vitest.mjs run tests/donnees/depot-plan.test.ts
+```
+
+Résumé de sortie GREEN :
+
+- Exit code : 0
+- Résultat : `Test Files 1 passed (1)`, `Tests 5 passed (5)`
+- Note : Node affiche toujours l'avertissement expérimental existant pour `node:sqlite`.

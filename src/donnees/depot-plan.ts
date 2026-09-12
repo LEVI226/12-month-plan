@@ -144,33 +144,41 @@ export class DepotPlanSql {
     const bilans = await this.pilote.lire<{ statut: string }>('SELECT statut FROM bilans WHERE id = ?', [saisie.bilanId]);
     if (bilans[0]?.statut !== 'gele') throw new BilanNonGeleErreur();
 
-    await this.pilote.executer("UPDATE plans SET statut = 'archive' WHERE statut = 'actif'");
-
     const debut = this.maintenant();
     const fin = ajouterJours(debut, 364);
     const planId = uuid();
-    await this.pilote.executer(
-      'INSERT INTO plans (id, bilan_id, ambition, statut, debut_le, fin_le, source, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [planId, saisie.bilanId, saisie.ambition.trim(), 'actif', debut, fin, 'manuel', 1],
-    );
 
-    let ordreAction = 1;
-    for (const [indexObjectif, objectif] of saisie.objectifs.entries()) {
-      const objectifId = uuid();
+    await this.pilote.executer('BEGIN');
+    try {
+      await this.pilote.executer("UPDATE plans SET statut = 'archive' WHERE statut = 'actif'");
       await this.pilote.executer(
-        'INSERT INTO objectifs (id, plan_id, titre, description, trimestre, ordre) VALUES (?, ?, ?, ?, ?, ?)',
-        [objectifId, planId, objectif.titre.trim(), '', 1, indexObjectif + 1],
+        'INSERT INTO plans (id, bilan_id, ambition, statut, debut_le, fin_le, source, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [planId, saisie.bilanId, saisie.ambition.trim(), 'actif', debut, fin, 'manuel', 1],
       );
-      for (const action of objectif.actions) {
+
+      let ordreAction = 1;
+      for (const [indexObjectif, objectif] of saisie.objectifs.entries()) {
+        const objectifId = uuid();
         await this.pilote.executer(
-          'INSERT INTO actions (id, plan_id, jalon_id, titre, type, semaine, recurrence, ordre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [uuid(), planId, null, action.titre.trim(), 'recurrente', null, JSON.stringify({ jours: action.jours, pendantSemaines: 8 }), ordreAction],
+          'INSERT INTO objectifs (id, plan_id, titre, description, trimestre, ordre) VALUES (?, ?, ?, ?, ?, ?)',
+          [objectifId, planId, objectif.titre.trim(), '', 1, indexObjectif + 1],
         );
-        ordreAction += 1;
+        for (const action of objectif.actions) {
+          await this.pilote.executer(
+            'INSERT INTO actions (id, plan_id, jalon_id, titre, type, semaine, recurrence, ordre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [uuid(), planId, null, action.titre.trim(), 'recurrente', null, JSON.stringify({ jours: action.jours, pendantSemaines: 8 }), ordreAction],
+          );
+          ordreAction += 1;
+        }
       }
+
+      await this.genererOccurrences(planId);
+      await this.pilote.executer('COMMIT');
+    } catch (erreur) {
+      await this.pilote.executer('ROLLBACK');
+      throw erreur;
     }
 
-    await this.genererOccurrences(planId);
     const actif = await this.planActif();
     if (!actif) throw new Error('Plan actif introuvable après création.');
     return actif;

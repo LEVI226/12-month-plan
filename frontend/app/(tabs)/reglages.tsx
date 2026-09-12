@@ -155,10 +155,14 @@ export default function Reglages() {
     }
   };
 
-  const onConfirmDelete = () => {
+  const onConfirmDelete = async () => {
     sheetRef.current?.dismiss();
-    deleteAll();
-    router.replace('/onboarding');
+    const success = await deleteAll();
+    if (success) {
+      router.replace('/onboarding');
+    } else {
+      showToast('La suppression a échoué, vos données sont toujours présentes.');
+    }
   };
 
   const renderBackdrop = useCallback(

@@ -1,0 +1,37 @@
+{
+  "summary": "Focused regression retest of the 2 reported bug fixes (privacy hardening + AppStore data robustness) per main agent request. BUG 1 (privacy) fully verified via static checks + visual check. BUG 2 (AppStore.tsx robustness) verified via localStorage manipulation for scenarios A, B, C (all PASS) and D (navigation PASS, but localStorage-null assertion FAILS due to a real bug: deleteAll() re-persists an empty-state blob into 'childeric:v1' a moment later). Also found a secondary issue in Scenario B: on web reload, the app does not navigate to the onboarding screen as expected because Expo Router's redirect guard only lives in index.tsx and a browser hard-reload re-mounts directly at the last URL path (/bilan) instead of '/'.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Scenario D - delete-all (Réglages > Supprimer toutes mes données)",
+        "issue": "After deleteAll() removes all 3 localStorage keys and calls setState(EMPTY_STATE), the autosave debounce effect (still active since loaded.current stays true) fires ~300ms later and re-writes 'childeric:v1' with JSON.stringify(EMPTY_STATE) (e.g. '{\"settings\":null,\"bilan\":{\"status\":\"draft\",\"answers\":{}},...}'). Verified via localStorage.getItem('childeric:v1') !== null after waiting 1500ms post-delete. precedent and corrompu keys correctly remain null. Functionally harmless (empty state, no crash, navigation to onboarding works correctly), but violates the exact-null contract requested and could reintroduce a stale main-key on the next app open if deleteAll is expected to leave a truly clean slate.",
+        "affected_testIDs": ["delete-data-button", "confirm-delete-button"]
+      },
+      {
+        "flow": "Scenario B - total corruption -> quarantine, then hard reload",
+        "issue": "After both keys are corrupted and the page is reloaded, the app correctly avoids crashing, shows the correct restore-message-banner ('mise de côté'), and correctly preserves the ORIGINAL corrupted blob in 'childeric:v1:corrompu' (verified exact match 'not-json-1'). However the app does NOT land on the onboarding screen as the task description expects — it remains on the previously active route (/bilan, rendered with the now-empty state) because on web a hard reload re-mounts the router directly at the last URL instead of going through index.tsx's Redirect logic (settings===null -> /onboarding). This is a routing-guard gap: only app/index.tsx has the redirect-if-no-settings check; deep routes like /bilan, /plan-create, /(tabs)/* have no equivalent guard, so directly loading them with an empty state does not crash but also does not self-heal by redirecting to onboarding.",
+        "affected_testIDs": ["restore-message-banner"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix deleteAll() in AppStore.tsx so the autosave effect does not re-persist an empty-state blob into 'childeric:v1' after deletion (e.g. skip the pending debounced save, or set loaded.current=false momentarily / use a guard flag, or clear pendingState.current AND cancel triggering a new save cycle from the setState(EMPTY_STATE) call within deleteAll).",
+    "Optional/lower-priority: add a settings-null guard (redirect to /onboarding) on deep routes (/bilan, /plan-create, /(tabs)) similar to index.tsx, so a hard web reload (or any direct deep-link) with empty state self-heals to onboarding instead of just staying on the current route with blank fields. Not a native-app-breaking issue (native cold starts always begin at index.tsx) but worth hardening for the web preview / deep-link case."
+  ],
+  "critical_code_review_comments": [
+    "AppStore.tsx persist logic (rolling backup + quarantine) is well designed and matches spec exactly for scenarios A, B, C.",
+    "deleteAll() should defensively prevent the debounce effect (tied to `state`) from re-firing after clearing storage; currently it only clears the timer that was already pending, but calling setState(EMPTY_STATE) inside deleteAll schedules a brand new debounced save which undoes the cleanup a moment later."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A - frontend only", "frontend": "3.5/4 scenarios fully pass (A, B core-recovery, C fully pass; D navigation passes but null-key assertion fails; B has a secondary routing-guard gap on web reload)"},
+  "seed_data_creation": "Seeded a valid frozen-bilan + plan state directly into localStorage for Scenario D to skip the 51-question bilan flow; this was test-only setup, not a code change.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "BUG1 (allowBackup:false in app.json, no unsplash references, local bundled hero image renders correctly) is fully verified and can be considered fixed. BUG2: Scenarios A and C are fully correct (rolling backup/restore banner text, save-error banner appears/disappears correctly). Scenario B's core requirement (corrompu key preserves exact original corrupted blob 'not-json-1', banner text with 'mise de côté') is correct, but the app doesn't navigate to onboarding on a raw web reload — flag as routing-guard gap, likely acceptable given native apps always cold-start at index.tsx, but confirm with main agent if this matters for web preview. Scenario D has a real bug: 'childeric:v1' is NOT null after delete (empty-state JSON gets re-written by the debounced autosave effect ~300ms after deleteAll clears it) — this needs a fix in AppStore.tsx's deleteAll()/save-effect interaction before considering BUG2 fully resolved.",
+  "rca_of_issue": "Scenario D RCA: deleteAll() awaits storage.removeItem() for all 3 keys then calls setState(EMPTY_STATE). The component's second useEffect (persist-on-change), keyed on `state`, is unconditionally active whenever loaded.current is true (it's set true once on initial load and never reset). Any setState call, including the one inside deleteAll, schedules a new SAVE_DEBOUNCE_MS(300ms) timer that calls persist(EMPTY_STATE), which does getItem(STORAGE_KEY) (now null, so precedent skipped) then setItem(STORAGE_KEY, JSON.stringify(EMPTY_STATE)) - reintroducing the main key with an empty-but-present JSON blob instead of leaving it absent/null. Mitigation: in deleteAll, after removing keys, either (1) set a ref flag to skip the next debounced persist cycle, or (2) don't rely on the generic effect at all for this transition - directly return early/no-op the save effect when the new state equals EMPTY_STATE right after a delete, or (3) reset loaded.current to false and true again in the same tick, or (4) most simply: cancel scheduling in deleteAll and have the effect check a 'skipNextSave' ref that deleteAll sets to true."
+}

@@ -16,6 +16,9 @@ import {
 import { daysBetween, todayKey } from '@/src/lib/date';
 
 const STORAGE_KEY = 'childeric:v1';
+const PRECEDENT_KEY = 'childeric:v1:precedent';
+const CORROMPU_KEY = 'childeric:v1:corrompu';
+const SAVE_DEBOUNCE_MS = 300;
 
 export interface Settings {
   firstName: string;
@@ -58,9 +61,23 @@ const EMPTY_STATE: AppState = {
   hasComeback: false,
 };
 
+function withDefaults(saved: Partial<AppState> | null | undefined): AppState {
+  if (!saved) return EMPTY_STATE;
+  return {
+    ...EMPTY_STATE,
+    ...saved,
+    bilan: saved.bilan ?? EMPTY_STATE.bilan,
+    celebratedBadgeIds: saved.celebratedBadgeIds ?? [],
+    hasComeback: saved.hasComeback ?? false,
+  };
+}
+
 interface StoreValue {
   ready: boolean;
   state: AppState;
+  restoreMessage: string | null;
+  dismissRestoreMessage: () => void;
+  saveError: boolean;
   saveSettings: (s: Settings) => void;
   setAnswer: (qid: string, value: string) => void;
   freezeBilan: () => void;
@@ -75,7 +92,7 @@ interface StoreValue {
   markBadgesSeen: (ids: string[]) => void;
   buildExport: () => object;
   buildSummary: () => string;
-  deleteAll: () => void;
+  deleteAll: () => Promise<boolean>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -83,34 +100,95 @@ const StoreContext = createContext<StoreValue | null>(null);
 export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(EMPTY_STATE);
   const [ready, setReady] = useState(false);
+  const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState(false);
   const loaded = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingState = useRef<AppState | null>(null);
 
   useEffect(() => {
     (async () => {
-      const saved = await storage.getJSON<AppState>(STORAGE_KEY);
-      if (saved) {
-        setState({
-          ...EMPTY_STATE,
-          ...saved,
-          bilan: saved.bilan ?? EMPTY_STATE.bilan,
-          celebratedBadgeIds: saved.celebratedBadgeIds ?? [],
-          hasComeback: saved.hasComeback ?? false,
-        });
+      let message: string | null = null;
+      try {
+        const raw = await storage.getItem(STORAGE_KEY);
+        if (raw != null) {
+          try {
+            const parsed = JSON.parse(raw) as AppState;
+            setState(withDefaults(parsed));
+          } catch {
+            // The main save is unreadable. Try the rolling backup before
+            // giving up, so a single corrupted write never wipes a bilan.
+            let recovered = false;
+            try {
+              const rawPrecedent = await storage.getItem(PRECEDENT_KEY);
+              if (rawPrecedent != null) {
+                const parsedPrecedent = JSON.parse(rawPrecedent) as AppState;
+                setState(withDefaults(parsedPrecedent));
+                recovered = true;
+                message = 'Vos données ont été restaurées depuis la dernière sauvegarde valide.';
+              }
+            } catch {
+              recovered = false;
+            }
+            if (!recovered) {
+              // Never overwrite the unreadable blob: set it aside for a
+              // possible manual recovery instead of silently discarding it.
+              try {
+                await storage.setItem(CORROMPU_KEY, raw);
+              } catch {
+                // best effort only
+              }
+              message =
+                "Une sauvegarde illisible a été mise de côté. L'application redémarre avec des données vides.";
+            }
+          }
+        }
+      } catch {
+        // Could not even read storage; start empty rather than crash.
       }
       loaded.current = true;
       setReady(true);
+      setRestoreMessage(message);
     })();
   }, []);
 
   useEffect(() => {
     if (!loaded.current) return;
-    storage.setJSON(STORAGE_KEY, state);
+    pendingState.current = state;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const toSave = pendingState.current;
+      saveTimer.current = null;
+      if (toSave) persist(toSave);
+    }, SAVE_DEBOUNCE_MS);
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+    };
   }, [state]);
+
+  const persist = async (toSave: AppState) => {
+    try {
+      const current = await storage.getItem(STORAGE_KEY);
+      if (current != null) {
+        await storage.setItem(PRECEDENT_KEY, current);
+      }
+      await storage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+      setSaveError(false);
+    } catch {
+      setSaveError(true);
+    }
+  };
 
   const value = useMemo<StoreValue>(() => {
     return {
       ready,
       state,
+      restoreMessage,
+      dismissRestoreMessage: () => setRestoreMessage(null),
+      saveError,
       saveSettings: (s) => setState((prev) => ({ ...prev, settings: s })),
       setAnswer: (qid, val) =>
         setState((prev) => ({
@@ -229,12 +307,24 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         occurrences: state.occurrences,
       }),
       buildSummary: () => buildSummaryText(state),
-      deleteAll: () => {
-        storage.removeItem(STORAGE_KEY);
-        setState(EMPTY_STATE);
+      deleteAll: async () => {
+        if (saveTimer.current) {
+          clearTimeout(saveTimer.current);
+          saveTimer.current = null;
+        }
+        pendingState.current = null;
+        try {
+          await storage.removeItem(STORAGE_KEY);
+          await storage.removeItem(PRECEDENT_KEY);
+          await storage.removeItem(CORROMPU_KEY);
+          setState(EMPTY_STATE);
+          return true;
+        } catch {
+          return false;
+        }
       },
     };
-  }, [state, ready]);
+  }, [state, ready, restoreMessage, saveError]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

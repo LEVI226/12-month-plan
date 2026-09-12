@@ -16,8 +16,7 @@ import { Icon } from '@/src/components/Icon';
 import { useStore } from '@/src/store/AppStore';
 import { detectTimezone, todayKey } from '@/src/lib/date';
 
-const WELCOME_BG =
-  'https://images.unsplash.com/photo-1714636608872-048fc9231892?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxzb2Z0JTIwYmVpZ2UlMjB3YXRlcmNvbG9yJTIwYWJzdHJhY3QlMjB0ZXh0dXJlfGVufDB8fHx8MTc4OTI0NzU2Nnww&ixlib=rb-4.1.0&q=85';
+const WELCOME_BG = require('../assets/images/onboarding-hero.jpg');
 
 const TIMES = ['07:00', '08:00', '12:00', '18:00', '20:00', '21:00', '22:00'];
 
@@ -53,7 +52,7 @@ export default function Onboarding() {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.hero}>
-          <Image source={{ uri: WELCOME_BG }} style={s.heroImg} contentFit="cover" transition={300} />
+          <Image source={WELCOME_BG} style={s.heroImg} contentFit="cover" transition={300} />
           <LinearGradient
             colors={['transparent', colors.surface]}
             style={s.heroScrim}
@@ -69,7 +68,7 @@ export default function Onboarding() {
         <View style={s.body}>
           <Txt variant="display">Bienvenue</Txt>
           <Txt variant="body" style={{ marginTop: spacing.sm }}>
-            Childeric vous aide à passer d'un bilan personnel à de petites actions
+            Childeric vous aide à passer d&apos;un bilan personnel à de petites actions
             quotidiennes, puis à tenir dans le temps. Rien ne quitte cet appareil.
           </Txt>
 

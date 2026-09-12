@@ -1,11 +1,26 @@
 import React from 'react';
-import { Platform } from 'react-native';
-import { Tabs } from 'expo-router';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
 import { FONTS, useTheme } from '@/src/theme';
 import { Icon, IconName } from '@/src/components/Icon';
+import { useStore } from '@/src/store/AppStore';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const { ready, state } = useStore();
+
+  if (!ready) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface }}>
+        <ActivityIndicator color={colors.brandPrimary} />
+      </View>
+    );
+  }
+  // Self-heal if this route is reached with incomplete data (e.g. a web
+  // hard-reload landing directly on a deep route after data was reset).
+  if (!state.settings) return <Redirect href="/onboarding" />;
+  if (state.bilan.status !== 'frozen') return <Redirect href="/bilan" />;
+  if (!state.plan) return <Redirect href="/plan-create" />;
 
   const icon =
     (name: IconName) =>

@@ -13,7 +13,8 @@
     },
     "android": {
       "package": "com.childeric.app",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "allowBackup": false
     },
     "web": {
       "bundler": "metro",

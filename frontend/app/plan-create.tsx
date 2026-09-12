@@ -19,8 +19,7 @@ import { DAY_LABELS_SHORT, DAY_LABELS_FULL } from '@/src/lib/date';
 import { PLAN_ACTION_EXAMPLES } from '@/src/data/bilan';
 import { hasAnyAnswer, suggestPlan } from '@/src/lib/suggest';
 
-const PLAN_HERO =
-  'https://images.unsplash.com/photo-1637689113621-73951984fcc1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxjYWxtJTIwbW9ybmluZyUyMGNvZmZlZSUyMHN1bmxpZ2h0JTIwam91cm5hbHxlbnwwfHx8fDE3ODkyNDc1NjZ8MA&ixlib=rb-4.1.0&q=85';
+const PLAN_HERO = require('../assets/images/plan-hero.jpg');
 
 let counter = 0;
 const uid = (p: string) => `${p}-${Date.now()}-${counter++}`;
@@ -179,7 +178,7 @@ export default function PlanCreate() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={s.hero}>
-          <Image source={{ uri: PLAN_HERO }} style={s.heroImg} contentFit="cover" transition={300} />
+          <Image source={PLAN_HERO} style={s.heroImg} contentFit="cover" transition={300} />
           <LinearGradient colors={['rgba(28,31,26,0.15)', 'rgba(28,31,26,0.72)']} style={s.heroScrim} />
           <View style={[s.heroText, { paddingBottom: spacing.lg }]}>
             <Txt variant="overline" color="#FFFFFF">

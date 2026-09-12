@@ -14,6 +14,7 @@ import { AppStoreProvider } from '@/src/store/AppStore';
 import { useTheme } from '@/src/theme';
 import { ensureAndroidChannel } from '@/src/lib/notifications';
 import { BadgeCelebration } from '@/src/components/BadgeCelebration';
+import { SystemBanners } from '@/src/components/SystemBanners';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -65,6 +66,7 @@ export default function RootLayout() {
                   <Stack.Screen name="(tabs)" />
                 </Stack>
                 <BadgeCelebration />
+                <SystemBanners />
               </BottomSheetModalProvider>
             </AppStoreProvider>
           </QueryClientProvider>

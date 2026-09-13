@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Platform, View } from 'react-native';
+import { ActivityIndicator, ColorValue, Platform, View } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
 import { FONTS, useTheme } from '@/src/theme';
 import { Icon, IconName } from '@/src/components/Icon';
@@ -19,12 +19,12 @@ export default function TabsLayout() {
   // Self-heal if this route is reached with incomplete data (e.g. a web
   // hard-reload landing directly on a deep route after data was reset).
   if (!state.settings) return <Redirect href="/onboarding" />;
-  if (state.bilan.status !== 'frozen') return <Redirect href="/bilan" />;
+  if (!state.plan && state.bilan.status !== 'frozen') return <Redirect href="/bilan" />;
   if (!state.plan) return <Redirect href="/plan-create" />;
 
   const icon =
     (name: IconName) =>
-    ({ color, focused }: { color: string; focused: boolean }) =>
+    ({ color, focused }: { color: ColorValue; focused: boolean }) =>
       <Icon name={name} size={24} color={color} strokeWidth={focused ? 2.2 : 1.8} />;
 
   return (

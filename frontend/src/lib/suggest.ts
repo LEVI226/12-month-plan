@@ -1,6 +1,6 @@
 // Local, rule-based plan suggestion built purely from the bilan answers
-// already stored on the device. No network call, no AI: Childeric stays
-// 100% offline. The result is only a starting point the user can freely
+// already stored on the device. This fallback makes no network call.
+// The result is only a starting point the user can freely
 // edit before creating the actual plan.
 
 export interface SuggestedAction {
@@ -49,11 +49,10 @@ export function suggestPlan(answers: Record<string, string>): SuggestedPlan {
   if (!personalActions.length) {
     personalActions.push({ title: 'Noter un moment de gratitude', days: [0, 2, 4] });
   }
-  personalActions.push({ title: 'Marcher 20 minutes', days: [0, 3, 5] });
 
   const proActions: SuggestedAction[] = [];
-  if (a('pro_qualif_manque')) {
-    proActions.push({ title: `Progresser sur : ${snippet(a('pro_qualif_manque'), 42)}`, days: [1, 4] });
+  if (a('pro_qualifications_manquantes')) {
+    proActions.push({ title: `Étudier pendant 20 minutes : ${snippet(a('pro_qualifications_manquantes'), 42)}`, days: [1, 4] });
   }
   if (a('pro_projet')) {
     proActions.push({ title: `Avancer mon projet : ${snippet(a('pro_projet'), 42)}`, days: [2] });

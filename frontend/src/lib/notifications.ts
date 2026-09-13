@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
-// Childeric is 100% offline: this only schedules a LOCAL notification on the
+// This schedules a LOCAL notification on the
 // device itself. No server, no push token, no account is involved.
 
 export const CHANNEL_ID = 'daily-reminder';

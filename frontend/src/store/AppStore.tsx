@@ -14,10 +14,10 @@ import {
   PlanObjective,
 } from '@/src/lib/plan';
 import { daysBetween, todayKey } from '@/src/lib/date';
+import { BILAN_QUESTIONS } from '@/src/data/bilan';
+import { createPersistence } from '@/src/lib/persistence';
+import { AppState as NativeAppState } from 'react-native';
 
-const STORAGE_KEY = 'childeric:v1';
-const PRECEDENT_KEY = 'childeric:v1:precedent';
-const CORROMPU_KEY = 'childeric:v1:corrompu';
 const SAVE_DEBOUNCE_MS = 300;
 
 export interface Settings {
@@ -44,6 +44,7 @@ export interface DayLog {
 export interface AppState {
   settings: Settings | null;
   bilan: Bilan;
+  bilans: Bilan[];
   plan: Plan | null;
   occurrences: Occurrence[];
   journal: Record<string, DayLog>;
@@ -54,6 +55,7 @@ export interface AppState {
 const EMPTY_STATE: AppState = {
   settings: null,
   bilan: { status: 'draft', answers: {} },
+  bilans: [],
   plan: null,
   occurrences: [],
   journal: {},
@@ -67,6 +69,7 @@ function withDefaults(saved: Partial<AppState> | null | undefined): AppState {
     ...EMPTY_STATE,
     ...saved,
     bilan: saved.bilan ?? EMPTY_STATE.bilan,
+    bilans: saved.bilans ?? (saved.bilan ? [saved.bilan] : []),
     celebratedBadgeIds: saved.celebratedBadgeIds ?? [],
     hasComeback: saved.hasComeback ?? false,
   };
@@ -81,6 +84,7 @@ interface StoreValue {
   saveSettings: (s: Settings) => void;
   setAnswer: (qid: string, value: string) => void;
   freezeBilan: () => void;
+  newBilan: () => void;
   createPlan: (ambition: string, objectives: PlanObjective[]) => void;
   startNewCycle: (ambition?: string, objectives?: PlanObjective[]) => void;
   toggleOccurrence: (id: string) => void;
@@ -105,55 +109,36 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const loaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingState = useRef<AppState | null>(null);
+  const persistence = useRef(createPersistence(storage, (raw): AppState => {
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved) ||
+        !saved.bilan || typeof saved.bilan.answers !== 'object' || !saved.bilan.answers ||
+        !['draft', 'frozen'].includes(saved.bilan.status) ||
+        !Array.isArray(saved.occurrences) || !saved.journal || typeof saved.journal !== 'object' ||
+        Object.values(saved.bilan.answers).some(value => typeof value !== 'string')) {
+      throw new Error('Sauvegarde invalide');
+    }
+    return withDefaults(saved);
+  }));
+  const deleting = useRef(false);
 
   useEffect(() => {
     (async () => {
-      let message: string | null = null;
       try {
-        const raw = await storage.getItem(STORAGE_KEY);
-        if (raw != null) {
-          try {
-            const parsed = JSON.parse(raw) as AppState;
-            setState(withDefaults(parsed));
-          } catch {
-            // The main save is unreadable. Try the rolling backup before
-            // giving up, so a single corrupted write never wipes a bilan.
-            let recovered = false;
-            try {
-              const rawPrecedent = await storage.getItem(PRECEDENT_KEY);
-              if (rawPrecedent != null) {
-                const parsedPrecedent = JSON.parse(rawPrecedent) as AppState;
-                setState(withDefaults(parsedPrecedent));
-                recovered = true;
-                message = 'Vos données ont été restaurées depuis la dernière sauvegarde valide.';
-              }
-            } catch {
-              recovered = false;
-            }
-            if (!recovered) {
-              // Never overwrite the unreadable blob: set it aside for a
-              // possible manual recovery instead of silently discarding it.
-              try {
-                await storage.setItem(CORROMPU_KEY, raw);
-              } catch {
-                // best effort only
-              }
-              message =
-                "Une sauvegarde illisible a été mise de côté. L'application redémarre avec des données vides.";
-            }
-          }
-        }
+        const result = await persistence.current.load();
+        setState(result.state ?? EMPTY_STATE);
+        setRestoreMessage(result.message);
+        loaded.current = true;
       } catch {
-        // Could not even read storage; start empty rather than crash.
+        setSaveError(true);
+        setRestoreMessage('Lecture impossible. Vos données ne seront pas écrasées. Relancez l’application pour réessayer.');
       }
-      loaded.current = true;
       setReady(true);
-      setRestoreMessage(message);
     })();
   }, []);
 
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!loaded.current || deleting.current || state === EMPTY_STATE) return;
     pendingState.current = state;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -171,16 +156,22 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
   const persist = async (toSave: AppState) => {
     try {
-      const current = await storage.getItem(STORAGE_KEY);
-      if (current != null) {
-        await storage.setItem(PRECEDENT_KEY, current);
-      }
-      await storage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+      await persistence.current.save({ ...toSave, bilans: [...toSave.bilans.slice(0, -1), toSave.bilan] });
       setSaveError(false);
     } catch {
       setSaveError(true);
     }
   };
+
+  useEffect(() => {
+    const subscription = NativeAppState.addEventListener('change', status => {
+      if (status === 'active' || deleting.current || !pendingState.current || !loaded.current) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      void persist(pendingState.current);
+    });
+    return () => subscription.remove();
+  }, []);
 
   const value = useMemo<StoreValue>(() => {
     return {
@@ -191,10 +182,15 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       saveError,
       saveSettings: (s) => setState((prev) => ({ ...prev, settings: s })),
       setAnswer: (qid, val) =>
-        setState((prev) => ({
+        setState((prev) => prev.bilan.status === 'frozen' ? prev : ({
           ...prev,
           bilan: { ...prev.bilan, answers: { ...prev.bilan.answers, [qid]: val } },
         })),
+      newBilan: () => setState(prev => {
+        if (prev.bilan.status !== 'frozen') return prev;
+        const bilan: Bilan = { status: 'draft', answers: {} };
+        return { ...prev, bilan, bilans: [...prev.bilans.slice(0, -1), prev.bilan, bilan] };
+      }),
       freezeBilan: () =>
         setState((prev) => ({
           ...prev,
@@ -225,7 +221,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
             cyclesCompleted: (prev.plan.cyclesCompleted ?? 0) + 1,
           };
           const newOcc = generateOccurrences(nextPlan);
-          return { ...prev, plan: nextPlan, occurrences: [...prev.occurrences, ...newOcc] };
+          return { ...prev, plan: nextPlan, occurrences: [...prev.occurrences.filter(o => o.date < nextPlan.startKey), ...newOcc] };
         }),
       toggleOccurrence: (id) =>
         setState((prev) => {
@@ -302,25 +298,29 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         exportedAt: new Date().toISOString(),
         settings: state.settings,
         bilan: state.bilan,
+        bilans: [...state.bilans.slice(0, -1), state.bilan],
+        questions: BILAN_QUESTIONS.map(({ id, label, section }) => ({ id, label, section })),
         plan: state.plan,
         journal: state.journal,
         occurrences: state.occurrences,
       }),
       buildSummary: () => buildSummaryText(state),
       deleteAll: async () => {
+        deleting.current = true;
         if (saveTimer.current) {
           clearTimeout(saveTimer.current);
           saveTimer.current = null;
         }
         pendingState.current = null;
         try {
-          await storage.removeItem(STORAGE_KEY);
-          await storage.removeItem(PRECEDENT_KEY);
-          await storage.removeItem(CORROMPU_KEY);
+          await persistence.current.clear();
           setState(EMPTY_STATE);
+          setSaveError(false);
           return true;
         } catch {
           return false;
+        } finally {
+          deleting.current = false;
         }
       },
     };
@@ -357,6 +357,6 @@ function buildSummaryText(state: AppState): string {
   lines.push(`  Petits pas faits : ${done}`);
   lines.push(`  Non faits : ${missed}`);
   lines.push('');
-  lines.push('Envoyé depuis Childeric — mes données restent sur mon téléphone.');
+  lines.push('Envoyé depuis Childeric. Partage choisi par son auteur.');
   return lines.join('\n');
 }

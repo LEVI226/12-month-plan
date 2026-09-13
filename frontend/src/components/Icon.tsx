@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ColorValue } from 'react-native';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 import { useTheme } from '@/src/theme';
 
@@ -31,7 +32,7 @@ export type IconName =
 interface Props {
   name: IconName;
   size?: number;
-  color?: string;
+  color?: ColorValue;
   strokeWidth?: number;
 }
 
@@ -53,7 +54,7 @@ export function Icon({ name, size = 24, color, strokeWidth = 1.8 }: Props) {
   );
 }
 
-function renderShape(name: IconName, c: string, p: object) {
+function renderShape(name: IconName, c: ColorValue, p: object) {
   switch (name) {
     case 'sun':
       return (

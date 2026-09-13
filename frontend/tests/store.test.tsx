@@ -1,0 +1,38 @@
+import React from 'react';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { AppStoreProvider, useStore } from '../src/store/AppStore';
+import { storage } from '../src/utils/storage';
+jest.mock('../src/utils/storage', () => ({ storage: { getItem: jest.fn(async () => null), setItem: jest.fn(async () => {}), removeItem: jest.fn(async () => {}) } }));
+beforeEach(() => jest.clearAllMocks());
+const wrapper = ({ children }: { children: React.ReactNode }) => <AppStoreProvider>{children}</AppStoreProvider>;
+test('freezing prevents edits, a new bilan preserves previous answers and the plan', async () => {
+  const { result, unmount } = await renderHook(useStore, { wrapper });
+  await waitFor(() => expect(result.current.ready).toBe(true));
+  await act(() => result.current.setAnswer('p_loisirs', 'Peindre'));
+  await act(() => result.current.freezeBilan());
+  await act(() => result.current.setAnswer('p_loisirs', 'Ecraser'));
+  expect(result.current.state.bilan.answers.p_loisirs).toBe('Peindre');
+  await act(() => result.current.createPlan('Art', [{ id: 'o', title: 'Art', actions: [{ id: 'a', title: 'Peindre', days: [0] }] }]));
+  const plan = result.current.state.plan;
+  await act(() => result.current.newBilan());
+  expect(result.current.state.plan).toBe(plan);
+  const exported = result.current.buildExport() as any;
+  expect(exported.bilans).toHaveLength(2);
+  expect(exported.bilans[0].answers.p_loisirs).toBe('Peindre');
+  expect(exported.questions[0]).toHaveProperty('label');
+  expect(JSON.stringify(exported)).not.toContain('credentials');
+  await unmount();
+});
+test('closed days cannot be toggled and deletion awaits the storage', async () => {
+  const { result, unmount } = await renderHook(useStore, { wrapper });
+  await waitFor(() => expect(result.current.ready).toBe(true));
+  await act(() => result.current.createPlan('Art', [{ id: 'o', title: 'Art', actions: [{ id: 'a', title: 'Peindre', days: [0, 1, 2, 3, 4, 5, 6] }] }]));
+  const occurrence = result.current.state.occurrences[0];
+  await act(() => result.current.closeDay(occurrence.date));
+  await act(() => result.current.toggleOccurrence(occurrence.id));
+  expect(result.current.state.occurrences[0].status).toBe('missed');
+  await act(async () => { expect(await result.current.deleteAll()).toBe(true); });
+  expect(storage.removeItem).toHaveBeenCalledTimes(3);
+  expect(result.current.state.plan).toBeNull();
+  await unmount();
+});

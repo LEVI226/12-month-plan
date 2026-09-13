@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Modal, Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -38,6 +38,7 @@ export default function BilanScreen() {
   }, []);
   const [index, setIndex] = useState(firstUnanswered);
   const [celebrateSection, setCelebrateSection] = useState<string | null>(null);
+  const [confirmFreeze, setConfirmFreeze] = useState(false);
 
   const q = BILAN_QUESTIONS[index];
   const section = BILAN_SECTIONS.find((sec) => index >= sec.from && index < sec.from + sec.count)!;
@@ -63,8 +64,7 @@ export default function BilanScreen() {
   const goNext = () => {
     Haptics.selectionAsync();
     if (isLast) {
-      freezeBilan();
-      router.replace('/plan-create');
+      setConfirmFreeze(true);
       return;
     }
     const isLastOfSection = index === section.from + section.count - 1;
@@ -90,6 +90,15 @@ export default function BilanScreen() {
 
   return (
     <View style={s.root}>
+      <Modal visible={confirmFreeze} animationType="slide" onRequestClose={() => setConfirmFreeze(false)}>
+        <View style={{ flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.lg, backgroundColor: colors.surface }}>
+          <Txt variant="title">Geler mon bilan</Txt>
+          <Txt>{BILAN_QUESTIONS.filter(question => state.bilan.answers[question.id]?.trim()).length} réponses sur {total}.</Txt>
+          <Txt>Ce geste est définitif : vos réponses ne pourront plus être modifiées.</Txt>
+          <Button label="Revenir à mon bilan" variant="secondary" onPress={() => setConfirmFreeze(false)} />
+          <Button label="Geler mon bilan" onPress={() => { freezeBilan(); setConfirmFreeze(false); router.replace(state.plan ? '/(tabs)' : '/plan-create'); }} />
+        </View>
+      </Modal>
       <View style={[s.header, { paddingTop: insets.top + spacing.md }]}>
         <View style={s.headerTop}>
           <Pressable
@@ -154,6 +163,7 @@ export default function BilanScreen() {
           <TextInput
             testID="bilan-answer-input"
             value={value}
+            editable={state.bilan.status !== 'frozen'}
             onChangeText={(t) => setAnswer(q.id, t)}
             placeholder="Prenez le temps d'écrire…"
             placeholderTextColor={colors.muted}

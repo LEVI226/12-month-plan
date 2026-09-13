@@ -16,6 +16,8 @@ import { Txt } from '@/src/components/Txt';
 import { Button } from '@/src/components/Button';
 import { Icon, IconName } from '@/src/components/Icon';
 import { useStore } from '@/src/store/AppStore';
+import { AISettings } from '@/src/components/AISettings';
+import { clearCredentials } from '@/src/lib/ia/credentials';
 import {
   cancelDailyReminder,
   getPermissionStatus,
@@ -31,7 +33,7 @@ export default function Reglages() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { state, saveSettings, buildExport, buildSummary, deleteAll } = useStore();
+  const { state, newBilan, saveSettings, buildExport, buildSummary, deleteAll } = useStore();
 
   const [toast, setToast] = useState<string | null>(null);
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -156,6 +158,7 @@ export default function Reglages() {
   };
 
   const onConfirmDelete = async () => {
+    try { await clearCredentials(); await cancelDailyReminder(); } catch { showToast('Suppression interrompue. Réessayez.'); return; }
     sheetRef.current?.dismiss();
     const success = await deleteAll();
     if (success) {
@@ -186,12 +189,15 @@ export default function Reglages() {
             <Txt variant="subtitle">Vos données vous appartiennent</Txt>
           </View>
           <Txt variant="small" style={{ marginTop: spacing.sm }}>
-            Tout est stocké uniquement sur ce téléphone. Rien n&apos;est envoyé en ligne. Vous
-            décidez seul(e) de partager ou non.
+            Votre bilan et votre suivi sont enregistrés sur ce téléphone. Vous choisissez
+            les partages et chaque envoi vers votre fournisseur d’IA.
           </Txt>
         </View>
 
         {/* Reminder */}
+        <AISettings />
+        {state.bilan.status === 'frozen' ? <Button label="Commencer un nouveau bilan" variant="secondary" onPress={() => { newBilan(); router.push('/bilan'); }} /> : <Button label="Reprendre mon bilan" variant="secondary" onPress={() => router.push('/bilan')} />}
+        <Txt variant="small">{Math.max(1, state.bilans.length)} bilan(s) conservé(s). L’export inclut leur historique.</Txt>
         <View style={s.group}>
           <View style={s.reminderHead}>
             <View style={s.rowIcon}>
@@ -336,7 +342,7 @@ export default function Reglages() {
           </Txt>
           <Txt variant="body" center style={{ marginTop: spacing.sm, marginBottom: spacing.xl }}>
             Votre bilan, votre plan et votre suivi seront effacés définitivement de cet
-            appareil. Cette action est irréversible.
+            appareil. Cette action est irréversible. Exportez d’abord si vous voulez garder une trace.
           </Txt>
           <Button
             testID="confirm-delete-button"

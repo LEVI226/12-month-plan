@@ -60,7 +60,7 @@ export default function Onboarding() {
           <View style={[s.badge, { top: insets.top + spacing.md }]}>
             <Icon name="shield" size={15} color={colors.brandPrimary} strokeWidth={2} />
             <Txt variant="label" color={colors.brandPrimary}>
-              100% sur votre téléphone
+              Vos données, vos choix
             </Txt>
           </View>
         </View>
@@ -69,7 +69,8 @@ export default function Onboarding() {
           <Txt variant="display">Bienvenue</Txt>
           <Txt variant="body" style={{ marginTop: spacing.sm }}>
             Childeric vous aide à passer d&apos;un bilan personnel à de petites actions
-            quotidiennes, puis à tenir dans le temps. Rien ne quitte cet appareil.
+            quotidiennes, puis à tenir dans le temps. Votre quotidien reste accessible sans connexion.
+            Vous choisissez chaque partage et chaque envoi à l’IA.
           </Txt>
 
           <View style={s.field}>

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Modal, ScrollView, Pressable, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   KeyboardAwareScrollView,
@@ -16,7 +16,9 @@ import { Icon } from '@/src/components/Icon';
 import { useStore } from '@/src/store/AppStore';
 import { PlanObjective } from '@/src/lib/plan';
 import { DAY_LABELS_SHORT, DAY_LABELS_FULL } from '@/src/lib/date';
-import { PLAN_ACTION_EXAMPLES } from '@/src/data/bilan';
+import { BILAN_QUESTIONS, PLAN_ACTION_EXAMPLES } from '@/src/data/bilan';
+import { getCredentials } from '@/src/lib/ia/credentials';
+import { generer, generatePlan } from '@/src/lib/ia/client';
 import { hasAnyAnswer, suggestPlan } from '@/src/lib/suggest';
 
 const PLAN_HERO = require('../assets/images/plan-hero.jpg');
@@ -51,6 +53,27 @@ export default function PlanCreate() {
   const [objectives, setObjectives] = useState<LocalObjective[]>([newObjective()]);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
   const [prefilledFromPlan, setPrefilledFromPlan] = useState(false);
+  const [credentials, setCredentials] = useState<Awaited<ReturnType<typeof getCredentials>>>(null);
+  const [consent, setConsent] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [source, setSource] = useState('');
+  useFocusEffect(useCallback(() => { getCredentials().then(setCredentials).catch(() => setNotice('Lecture de la clé impossible. La suggestion locale reste disponible.')); }, []));
+  const transmitted = BILAN_QUESTIONS.filter(q => state.bilan.answers[q.id]?.trim());
+  const onGenerate = async () => {
+    if (!credentials || generating) return;
+    setGenerating(true);
+    try {
+      const result = await generatePlan(prompt => generer(credentials.config, credentials.key, prompt), transmitted.map(q => `${q.label} : ${state.bilan.answers[q.id]}`).join('\n'));
+      setAmbition(result.ambition);
+      setObjectives(result.objectives.map(o => ({ ...o, id: uid('o'), actions: o.actions.map(a => ({ ...a, id: uid('a') })) })));
+      setSource('généré — modifiable');
+      setNotice(result.attention ? 'Childeric ne remplace pas un soutien psychologique. Prenez le temps de parler à une personne de confiance.' : 'Votre proposition est prête.');
+    } catch {
+      applySuggestion();
+      setNotice('Nous n’avons pas pu générer votre plan automatiquement. Voici une proposition à adapter.');
+    } finally { setGenerating(false); setConsent(false); }
+  };
 
   // On a fresh page load / deep link, the store hydrates from storage
   // asynchronously, so `state.plan` may not be ready on first render yet.
@@ -147,6 +170,7 @@ export default function PlanCreate() {
   const showSuggestion = isPristine && !suggestionDismissed && hasAnyAnswer(state.bilan.answers);
 
   const applySuggestion = () => {
+    setSource('suggestion — modifiable');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const sug = suggestPlan(state.bilan.answers);
     setAmbition(sug.ambition);
@@ -171,6 +195,16 @@ export default function PlanCreate() {
 
   return (
     <View style={s.root}>
+      <Modal visible={consent} animationType="slide" onRequestClose={() => { if (!generating) setConsent(false); }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.lg }} style={{ backgroundColor: colors.surface }}>
+          <Txt variant="title">Avant de transmettre</Txt>
+          <Txt>Vos réponses ci-dessous seront envoyées à {credentials?.config.provider}, modèle {credentials?.config.model}, avec votre clé. Cet envoi est facturé par votre fournisseur. Childeric ne conserve pas de copie sur un serveur.</Txt>
+          <Txt variant="small">Destination : {credentials?.config.base}</Txt>
+          {transmitted.map(q => <View key={q.id}><Txt variant="bodyStrong">{q.label}</Txt><Txt>{state.bilan.answers[q.id]}</Txt></View>)}
+          <Button label="Envoyer et générer" loading={generating} onPress={onGenerate} />
+          <Button label="Construire mon plan sans transmettre" variant="ghost" disabled={generating} onPress={() => { setConsent(false); applySuggestion(); }} />
+        </ScrollView>
+      </Modal>
       <KeyboardAwareScrollView
         contentContainerStyle={{ paddingBottom: 130 }}
         bottomOffset={100}
@@ -191,6 +225,8 @@ export default function PlanCreate() {
         </View>
 
         <View style={s.body}>
+          {credentials ? <Button label="Générer mon plan avec l’IA" icon="sparkle" onPress={() => setConsent(true)} /> : <Button label="Configurer l’IA dans Réglages" variant="ghost" onPress={() => router.push('/ai-settings')} />}
+          {notice ? <Txt variant="small">{notice}</Txt> : null}
           {showSuggestion ? (
             <View style={s.suggestCard} testID="plan-suggestion-card">
               <View style={s.compassHead}>
@@ -272,6 +308,7 @@ export default function PlanCreate() {
 
               {obj.actions.map((act, ai) => (
                 <View key={act.id} style={s.actionBlock}>
+                  {source ? <Txt variant="small" color={colors.brandPrimary}>{source}</Txt> : null}
                   <View style={s.actionRow}>
                     <TextInput
                       testID={`action-title-${oi}-${ai}`}

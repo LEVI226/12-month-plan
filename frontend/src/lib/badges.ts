@@ -29,7 +29,7 @@ export function computeBadges(state: AppState): Badge[] {
   ];
 
   const unlockedMap: Record<string, boolean> = {
-    bilan: state.bilan.status === 'frozen',
+    bilan: state.bilan.status === 'frozen' || state.bilans.some(bilan => bilan.status === 'frozen'),
     plan: !!state.plan,
     first_step: doneTotal >= 1,
     steps10: doneTotal >= 10,

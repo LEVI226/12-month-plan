@@ -17,7 +17,7 @@ export default function Index() {
   }
 
   if (!state.settings) return <Redirect href="/onboarding" />;
-  if (state.bilan.status !== 'frozen') return <Redirect href="/bilan" />;
+  if (!state.plan && state.bilan.status !== 'frozen') return <Redirect href="/bilan" />;
   if (!state.plan) return <Redirect href="/plan-create" />;
   return <Redirect href="/(tabs)" />;
 }
